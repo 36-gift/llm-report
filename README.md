@@ -1,1 +1,4 @@
 # llm_report
+这里是llm_report的项目库，该项目的代码可以自动爬取100条有关大语言模型的最新新闻，并生成报告
+程序主体由4个py文件构成：main,data_cleaner,summarizer,reddit_scraper
+在main.py中调用其他三个代码，进行数据的爬取，清洗，总结，最后将报告生成到指定的路径中
