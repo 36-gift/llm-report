@@ -27,7 +27,7 @@
 1. 克隆仓库
 
 ```bash
-git clone https://github.com/yourusername/llm_report.git
+git clone https://github.com/36-gift/llm_report.git
 cd llm_report
 ```
 
