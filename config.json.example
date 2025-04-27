@@ -1,0 +1,8 @@
+{
+  "reddit_url": "https://www.reddit.com/r/LocalLLaMA/",
+  "post_cleanup_hours": 48,
+  "summary_batch_size": {
+    "min": 5,
+    "max": 10
+  }
+}
