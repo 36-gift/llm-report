@@ -1,7 +1,22 @@
-requests
-beautifulsoup4
-selenium
-webdriver-manager
-pandas 
-openpyxl
-google-generativeai
+# pip install -r requirements.txt
+
+# 网络请求和爬虫
+requests>=2.31.0,<3.0.0
+beautifulsoup4>=4.12.0,<5.0.0
+selenium>=4.14.0,<5.0.0
+webdriver-manager>=4.0.0,<5.0.0
+
+# 数据处理
+pandas>=1.5.3,<2.0.0  # 数据分析和处理
+numpy==1.24.3  # 数值计算
+openpyxl>=3.1.2,<4.0.0  # Excel读写支持
+
+# Google API
+google-generativeai>=0.5.0,<1.0.0  # Gemini API客户端
+
+# 文档处理
+python-docx>=1.0.0,<2.0.0  # Word文档生成
+
+# 工具依赖
+tqdm>=4.66.0,<5.0.0  # 进度条显示
+python-dotenv>=1.0.0,<2.0.0  # 环境变量管理
