@@ -4,7 +4,15 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Virtual environment
 env/
+venv/
+ENV/
+.env
+.venv
+
+# Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -20,24 +28,58 @@ var/
 .installed.cfg
 *.egg
 
-# 环境变量和配置文件
-.env
-venv/
-ENV/
-env/
-.venv
-config.json
-
-# 编辑器和IDE相关
+# IDE and editor files
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# 系统文件
+# OS generated files
 .DS_Store
 Thumbs.db
+
+# Generated data and output files
+data/*.xlsx
+data/*.txt
+data/*.json
+# Keep data directory itself, but ignore specific generated files above
+# If raw/processed subdirs are used, ignore them explicitly:
+# data/raw/
+# data/processed/
+
+# Report generation artifacts
+llm_report_tool/reports/*.tex
+llm_report_tool/reports/*.pdf
+llm_report_tool/reports/*.log
+llm_report_tool/reports/*.aux
+llm_report_tool/reports/*.out
+llm_report_tool/reports/*.toc
+llm_report_tool/reports/*.synctex.gz
+
+# WebDriver related
+drivers/
+drivers/*.exe
+drivers/*.zip
+*.crx
+node_modules/
+chromedriver
+undetected_chromedriver.zip
+
+# Test related
+.coverage
+htmlcov/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Config files (ignore actual, keep example)
+config.json
+
+# But DO NOT ignore example files
+!config.json.example
+!.env.example
 
 # 数据文件和输出目录
 data/raw/

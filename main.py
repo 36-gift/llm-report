@@ -1,29 +1,16 @@
-import subprocess
+import sys
 import os
+from pathlib import Path
 
-def run_script(script_path):
-    """运行指定的 Python 脚本"""
-    try:
-        print(f"正在运行 {script_path}...")
-        subprocess.run(["python", script_path], check=True)
-        print(f"{script_path} 运行完成。\n")
-    except subprocess.CalledProcessError as e:
-        print(f"运行 {script_path} 时出错: {e}")
-        exit(1)  # 遇到错误直接退出
+# Ensure the package directory is in the Python path
+# This allows importing llm_report_tool even when running main.py from the root
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+# Import the main function from the package
+from llm_report_tool.main import main
 
 if __name__ == "__main__":
-    # 确保脚本文件存在
-    reddit_scraper_path = "reddit_scraper.py"
-    data_cleaner_path = "data_cleaner.py"
-    summarizer_path = "summarizer.py"
-
-    if not all(os.path.exists(path) for path in [reddit_scraper_path, data_cleaner_path, summarizer_path]):
-        print("错误：请确保所有脚本文件都存在。")
-        exit(1)
-
-    # 运行脚本
-    run_script(reddit_scraper_path)
-    run_script(data_cleaner_path)
-    run_script(summarizer_path)
-
-    print("周报生成完成！")
+    # Call the main function from the package
+    # sys.argv will be automatically passed and parsed by the argparse logic within llm_report_tool.main.main
+    sys.exit(main())

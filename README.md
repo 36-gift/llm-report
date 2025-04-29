@@ -1,322 +1,243 @@
-# LLM 新闻日报生成工具
+# <center>📰 LLM 新闻日报自动生成工具 🤖</center>
 
-![Python Version](https://img.shields.io/badge/python-3.10-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Status](https://img.shields.io/badge/status-beta-yellow)
+<!-- Placeholder Badges -->
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white" alt="Python Version">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+  <!-- Add other relevant badges here, e.g., build status, coverage -->
+</p>
 
-> 自动化工具，用于爬取 Reddit 上的大语言模型（LLM）相关新闻，清洗数据，生成摘要，并输出格式化的日报文档。
+---
 
-<div align="center">
-  <a href="#-功能特点">功能特点</a> •
-  <a href="#-安装步骤">安装步骤</a> •
-  <a href="#-使用方法">使用方法</a> •
-  <a href="#-配置选项">配置选项</a> •
-  <a href="#-常见问题">常见问题</a> •
-  <a href="#-致谢">致谢</a> •
-  <a href="#-免责声明">免责声明</a>
-</div>
+## 📖 概述
 
-## 🌟 功能特点
+本工具旨在自动化地从 Reddit 的特定版块（默认为 `r/LocalLLaMA`）抓取最新的关于大型语言模型（LLM）的讨论帖子，对内容进行清洗、摘要生成、智能分类，并最终生成一份结构化的日报（目前支持 PDF 格式），帮助用户快速了解 LLM 领域的最新动态和热点话题。
 
-- **🔍 自动爬取**: 使用 Selenium 自动爬取 Reddit 上关于大语言模型的最新帖子，支持按日期范围筛选
-- **🤖 内容质量分析**: 使用 DeepSeek API 分析内容质量并添加质量评分，保留所有原始数据
-- **🖼️ 图片内容支持**: 支持提取和存储帖子中的图片链接，完整保留图文内容
-- **🤖 AI 摘要生成**: 利用 DeepSeek API 自动生成高质量摘要
-- **📊 话题抽取与分类**: 使用 NLP 技术自动提取主题并对摘要进行分类
-- **📝 PDF 报告生成**: 支持生成基于 LaTeX 的 PDF 报告
-- **⚙️ 完全自动化**: 一条命令完成从爬取到报告生成的全流程
-- **🔧 灵活配置**: 支持自定义 Reddit 来源、时间筛选和输出格式
+---
 
-## 📋 安装步骤
+## 🌳 项目结构
 
-### 前置要求
+```
+llm_report/
+├── .env.example          # 环境变量示例文件
+├── .gitignore            # Git 忽略文件配置
+├── config.json           # 默认配置文件
+├── config.json.example   # 配置文件示例
+├── data/                 # 存放生成的数据文件 (被 .gitignore 忽略)
+│   ├── *.xlsx
+│   ├── *.txt
+│   └── *.json
+├── drivers/              # (可选) 存放 WebDriver 二进制文件
+├── llm_report_tool/      # 主要工具代码
+│   ├── __init__.py
+│   ├── main.py             # 主入口和工作流控制
+│   ├── scrapers/         # 爬虫模块
+│   │   └── reddit_scraper.py
+│   ├── processors/       # 数据处理模块
+│   │   ├── data_cleaner.py
+│   │   ├── summarizer.py
+│   │   ├── classifier.py       # (原 topic_extractor.py)
+│   │   └── latex_report_generator.py
+│   ├── reports/            # 存放生成的报告和中间文件 (被 .gitignore 忽略)
+│   │   ├── *.pdf
+│   │   ├── *.tex
+│   │   └── ... (其他 LaTeX 文件)
+│   └── utils/            # 工具函数和配置
+│       └── config.py
+├── README.md             # 项目说明文件 (就是您正在看的这个)
+├── requirements.txt      # Python 依赖列表
+├── tests/                # (可选) 单元测试和集成测试
+└── verify_setup.py       # (可能) 用于检查环境设置的脚本
+```
 
-- Python 3.10+
-- Chrome 浏览器（用于 Selenium 爬虫）
-- DeepSeek API 密钥
-- LaTeX 环境（用于生成 PDF 报告）
+---
 
-### 安装过程
+## ✨ 主要功能
 
-1. 克隆仓库
+- **🤖 自动抓取**: 从指定的 Reddit URL 抓取设定时间范围内（默认 24 小时）的帖子。
+- **🧹 数据清洗**:
+  - 移除明显空白或无效的帖子内容。
+  - (可选) 使用 LLM API (**DeepSeek**) 对帖子内容进行质量评分，过滤低质量或不相关的帖子。
+- **✍️ 内容摘要**: 使用 LLM API (**DeepSeek**) 为每个高质量帖子生成简洁明了的中文摘要。
+- **🏷️ 智能分类**: 使用 LLM API (**DeepSeek**) 对生成的摘要进行内容分类（如"模型发布"、"性能评测"等）。
+- **🔥 热点总结**:
+  - (可选) 基于分类结果，识别当天讨论最多的分类，并生成分类热点总结。
+  - (当前实现) 基于所有摘要内容，识别当天讨论频率最高的**核心概念**（如模型名称、技术术语），并生成概念热点总结。
+- **📄 报告生成**: 将分类后的摘要和热点总结整合，生成专业的 **PDF** 格式日报（使用 **LaTeX**）。
+- **🔧 高度可配置**: 支持通过 `config.json` 文件和环境变量自定义大部分行为（如 Reddit URL、API 密钥、时间范围、LLM 温度参数等）。
+- **🧩 模块化设计**: 各个处理阶段（抓取、清洗、摘要、分类、报告）解耦，方便单独运行或跳过某些阶段。
+
+---
+
+## 🚀 技术栈
+
+- **核心语言**: Python 3.10+
+- **数据抓取**: Selenium, Requests, BeautifulSoup4
+- **数据处理**: Pandas
+- **LLM API**: DeepSeek API (用于内容分析、摘要、分类、概念提取)
+- **报告生成**: PyLaTeX, XeLaTeX (_需要本地安装 TeX 发行版_)
+- **依赖管理**: pip, `requirements.txt`
+- **配置管理**: python-dotenv, JSON
+
+---
+
+## ⚙️ 环境设置
+
+本节介绍如何设置运行此工具所需的环境。
+
+#### 1. 克隆仓库
 
 ```bash
 git clone https://github.com/36-gift/llm_report.git
-cd llm_report
+cd <repository-directory>
 ```
 
-2. 安装依赖
+#### 2. 创建虚拟环境 (_推荐_)
+
+推荐使用 `conda` 创建虚拟环境：
+
+```bash
+conda create -n llm_report python=3.10 -y
+conda activate llm_report
+```
+
+_如果您不使用 `conda`，也可以使用 Python 内置的 `venv`：_
+
+```bash
+# python -m venv venv
+# Windows: .\venv\Scripts\activate
+# macOS/Linux: source venv/bin/activate
+```
+
+#### 3. 安装依赖
+
+_确保您的 `conda` 环境已激活_
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. 安装 spaCy 中文语言模型
+_注意: 这会自动安装 `webdriver-manager`，它会尝试下载合适的 ChromeDriver。_
+
+#### 4. 设置环境变量
+
+- **必需**: 创建一个 `.env` 文件（可从 `.env.example` 复制），并填入您的 **DeepSeek API 密钥**：
+  ```dotenv
+  # .env
+  DEEPSEEK_API_KEY="your_deepseek_api_key_here"
+  ```
+- _(可选)_ 您也可以在 `.env` 文件中设置其他配置，如 `REDDIT_URL`, `POST_CLEANUP_HOURS` 等。
+
+#### 5. 安装 LaTeX 环境 (_用于生成 PDF_)
+
+为了生成 PDF 报告，您需要在本地安装一个 **TeX 发行版**。
+
+- **Windows**: 推荐安装 [**MiKTeX**](https://miktex.org/download)。
+  - 安装后，请务必打开 **MiKTeX Console** -> **Packages**，搜索并安装 `xeCJK` 宏包（这是中文支持的关键）。
+- **macOS**: 推荐安装 [**MacTeX**](https://www.tug.org/mactex/downloading.html) (包含了 TeX Live 和所需工具)。
+- **Linux**: 可以通过包管理器安装 **TeX Live**。
+  - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install texlive-xetex texlive-lang-chinese` (或者 `texlive-full` 如果您不介意大小)
+  - Fedora: `sudo dnf install texlive-scheme-basic texlive-xetex texlive-collection-langchinese` (或者 `texlive-scheme-full`)
+  - _请根据您的发行版调整包名。_
+- **验证**: 安装完成后，尝试在终端运行 `xelatex --version`，如果成功显示版本信息，则表示安装基本成功。
+
+---
+
+## 🛠️ 使用方法
+
+通过运行项目根目录下的 `main.py` 脚本来启动整个工作流程。支持多种命令行参数来控制执行过程：
 
 ```bash
-# 确保已安装 spaCy
-pip install spacy
-
-# 下载中文语言模型
-python -m spacy download zh_core_web_sm
+python main.py [选项]
 ```
 
-4. 设置环境变量
+#### **常用选项**
 
-```bash
-# Windows (PowerShell)
-$env:DEEPSEEK_API_KEY="your-api-key-here"
+| 选项                      | 缩写 | 描述                                                                         |
+| :------------------------ | :--- | :--------------------------------------------------------------------------- |
+| `--skip-scrape`           |      | 🚫 跳过 Reddit 爬取阶段。                                                    |
+| `--skip-clean`            |      | 🚫 跳过数据清洗和质量分析阶段。                                              |
+| `--skip-summary`          |      | 🚫 跳过摘要生成阶段。                                                        |
+| `--skip-topic`            |      | 🚫 跳过智能分类和热点总结阶段。                                              |
+| `--no-pdf`                |      | 🚫 不生成最终的 PDF 报告。                                                   |
+| `--classifier-input-file` |      | 📝 指定分类器使用的输入摘要文件路径 (例如 `data/summaries_YYYY-MM-DD.txt`)。 |
+| `--reddit-url`            |      | 🌐 指定要爬取的 Reddit 版块 URL。                                            |
+| `--hours`                 |      | ⏰ 指定抓取多少小时内的帖子 (例如 `12`)。                                    |
+| `--output-dir`            |      | 📁 指定所有输出文件的根目录。                                                |
+| `--verbose`               | `-v` | 📢 启用更详细的日志输出。                                                    |
 
-# Windows (CMD)
-set DEEPSEEK_API_KEY=your-api-key-here
+#### **示例**
 
-# Linux/macOS
-export DEEPSEEK_API_KEY="your-api-key-here"
-```
+- **🚀 完整运行**:
+  ```bash
+  python main.py
+  ```
+- **⏩ 跳过抓取和清洗，从摘要开始**:
+  ```bash
+  python main.py --skip-scrape --skip-clean
+  ```
+- **📑 仅运行分类和报告生成 (使用指定日期的摘要)**:
+  ```bash
+  python main.py --skip-scrape --skip-clean --skip-summary --classifier-input-file data/summaries_2025-04-29.txt
+  ```
 
-或者创建 `.env` 文件，内容参考 `.env.example`：
+---
 
-```
-DEEPSEEK_API_KEY=your-api-key-here
-REDDIT_URL=https://www.reddit.com/r/LocalLLaMA/
-POST_CLEANUP_HOURS=168  # 7天=168小时
-TEMPERATURE_SUMMARIZER=0.8
-TEMPERATURE_TOPIC_EXTRACTOR=0.3
-TEMPERATURE_DATA_CLEANER=0.8
-```
+## 📄 输出文件
 
-5. 验证安装
+默认情况下，工具会在 `data/` 和 `llm_report_tool/reports/` 目录下生成以下文件（文件名中的日期为执行日期）：
 
-```bash
-python verify_setup.py
-```
+- `data/reddit_posts_YYYY-MM-DD.xlsx`: 📊 爬虫抓取的原始帖子数据。
+- `data/cleaned_reddit_posts_YYYY-MM-DD.xlsx`: ✨ 经过清洗和质量评分后的帖子数据。
+- `data/summaries_YYYY-MM-DD.txt`: 📝 为高质量帖子生成的摘要文本文件。
+- `data/classified_summaries_YYYY-MM-DD.json`: 🧠 包含每个摘要的分类结果和提取的概念热点总结。
+- `llm_report_tool/reports/YYYY-MM-DD-llm-news-daily.pdf`: 📰 **最终生成的 PDF 格式日报**。
+- `llm_report_tool/reports/*.log`, `.aux`, `.tex`, etc.: ⚙️ LaTeX 编译过程中的中间文件（如果未被自动清理）。
 
-## 🚀 使用方法
+---
 
-### 基本用法
+## ⚙️ 配置 (`config.json`)
 
-运行完整工作流程：
-
-```bash
-python run.py
-```
-
-### 高级选项
-
-```bash
-# 显示详细日志
-python run.py --verbose
-
-# 跳过爬虫阶段，使用已有数据
-python run.py --skip-scrape
-
-# 跳过PDF报告生成
-python run.py --no-pdf
-
-# 设置Reddit版块URL
-python run.py --reddit-url "https://www.reddit.com/r/MachineLearning/"
-
-# 设置过滤时间（小时）
-python run.py --hours 168  # 默认一周
-
-# 指定输出目录
-python run.py --output-dir "./output"
-
-# 获取帮助
-python run.py --help
-```
-
-## 📁 项目结构
-
-```
-llm_report/
-├── llm_report_tool/          # 核心代码包
-│   ├── scrapers/             # 爬虫模块
-│   │   └── reddit_scraper.py # Reddit爬虫
-│   ├── processors/           # 处理器模块
-│   │   ├── data_cleaner.py   # 数据清洗
-│   │   ├── summarizer.py     # 文本摘要
-│   │   ├── topic_extractor.py # 主题抽取与分类
-│   │   └── latex_report_generator.py # PDF报告生成
-│   ├── utils/                # 工具模块
-│   │   └── config.py         # 配置管理
-│   └── main.py               # 主程序入口
-├── data/                     # 数据存储目录
-├── drivers/                  # WebDriver驱动程序目录
-├── tests/                    # 测试代码
-├── run.py                    # 启动脚本
-├── verify_setup.py           # 环境验证脚本
-├── requirements.txt          # 项目依赖
-├── .env.example              # 环境变量示例
-└── README.md                 # 项目说明
-```
-
-## ⚙️ 配置选项
-
-你可以创建一个 `config.json` 文件来自定义配置：
+您可以通过修改项目根目录下的 `config.json` 文件来调整部分默认行为（环境变量会覆盖此文件中的设置）：
 
 ```json
 {
   "reddit_url": "https://www.reddit.com/r/LocalLLaMA/",
-  "post_cleanup_hours": 168,
-  "summary_batch_size": {
-    "min": 5,
-    "max": 10
-  },
-  "report_title": "LLM技术日报",
+  "post_cleanup_hours": 24,
+  "report_title": "LLM 技术日报",
   "report_prefix": "llm-news-daily",
   "temperature": {
-    "summarizer": 0.8,
-    "topic_extractor": 0.3,
+    "summarizer": 0.6,
+    "topic_extractor": 0.8,
     "data_cleaner": 0.8
   }
 }
 ```
 
-### Temperature 参数说明
-
-本项目中使用了三个不同的 temperature 参数，分别针对不同的处理模块：
-
-- **summarizer (0.8)**: 摘要生成使用较高的 temperature，使文本更加流畅自然，富有表现力。
-- **topic_extractor (0.8)**: 主题提取使用适中的 temperature，平衡主题分类的创造性和准确性。
-- **data_cleaner (0.8)**: 内容质量分析使用适中的 temperature，提供平衡的质量评分。
-
-所有模块现在统一使用 0.8 的 temperature 值，确保输出结果既有创造性又保持一致性。
-
-## 📊 输出示例
-
-生成的 PDF 报告将保存在 `llm_report_tool/reports/` 目录（或指定的输出目录）中：
-
-- PDF 文档: `YYYY-MM-DD-llm-news-daily.pdf`
-
-## 💡 常见问题
-
-<details>
-<summary><b>爬虫无法工作？</b></summary>
-<p>
-确保已安装最新版 Chrome 浏览器，且 webdriver-manager 能正确下载匹配的驱动。如遇到 ChromeDriver 版本不匹配问题，请尝试以下解决方案：
-
-1. 手动下载匹配版本的 ChromeDriver 并放置在 `drivers` 目录中
-2. 降级 Chrome 浏览器版本以匹配可用的 ChromeDriver
-3. 设置环境变量跳过爬虫阶段：`python run.py --skip-scrape`
-4. 在 Windows 系统下，如果遇到 "不是有效的 Win32 应用程序" 错误，尝试使用 WebDriver Manager 3.8.3 版本
-
-```bash
-pip install webdriver-manager==3.8.3
-```
-
-</p>
-</details>
-
-<details>
-<summary><b>API 密钥错误？</b></summary>
-<p>
-检查是否正确设置了 `DEEPSEEK_API_KEY` 环境变量。可以在命令行中检查环境变量：
-
-```bash
-# Windows PowerShell
-echo $env:DEEPSEEK_API_KEY
-
-# Linux/macOS
-echo $DEEPSEEK_API_KEY
-```
-
-如果输出为空，说明环境变量未设置。请参考安装步骤中的说明重新设置。
-
-</p>
-</details>
-
-<details>
-<summary><b>LaTeX PDF 生成失败？</b></summary>
-<p>
-确保已安装完整的 LaTeX 环境，包括必要的中文字体和 ctex 包。
-
-对于 Windows 用户，推荐安装 TeXLive 或 MiKTeX。安装后，请确保安装了中文支持包，可通过 TeXLive 或 MiKTeX 的包管理器安装。
-
-对于 Linux 用户：
-
-```bash
-sudo apt-get install texlive-full
-```
-
-对于 macOS 用户：
-
-```bash
-brew install --cask mactex
-```
-
-</p>
-</details>
-
-<details>
-<summary><b>如何自定义报告格式？</b></summary>
-<p>
-修改 `llm_report_tool/processors/latex_report_generator.py` 文件，自定义报告的标题、章节结构、样式和排版等元素。
-</p>
-</details>
-
-## 🔄 最新更新
-
-- 移除 Word 报告生成功能，专注于 PDF 格式报告
-- 使用 DeepSeek API 替代 Gemini API，提升摘要生成质量
-- 增加全局温度参数配置，可针对不同模块单独设置 temperature
-- 彻底改为日报，获取最近一天的所有相关新闻
-- 增加分页获取功能，无限制获取一天内所有帖子
-- 增强数据清洗功能，使用更严格的质量过滤机制
-- 优化过滤逻辑，移除无关内容检测，专注于内容质量
-- 增强 WebDriver 兼容性，添加多种备用方法
-- 添加基于 API 的备用爬取方式，减少对 Selenium 的依赖
-- 类型系统增强，修复各类型安全问题
-- 添加主题抽取与分类功能，自动分析摘要内容
-- 优化摘要长度控制，保持每篇在 300-400 字
-- 修复 PDF 报告生成中的路径问题
-
-## 🤝 贡献指南
-
-欢迎提交 Pull Request 或 Issue！贡献前请参考以下步骤：
-
-1. Fork 该仓库
-2. 创建新分支：`git checkout -b feature/your-feature`
-3. 提交您的更改：`git commit -am 'Add some feature'`
-4. 推送到远程分支：`git push origin feature/your-feature`
-5. 提交 Pull Request
-
-## 🙏 致谢
-
-本项目的开发离不开以下开源项目和服务的支持：
-
-- [DeepSeek API](https://deepseek.com/) - 提供强大的文本生成和处理能力
-- [NLTK](https://www.nltk.org/) - 自然语言处理工具包
-- [scikit-learn](https://scikit-learn.org/) - 机器学习库，用于主题建模
-- [Selenium](https://www.selenium.dev/) - 网页自动化工具
-- [pandas](https://pandas.pydata.org/) - 数据处理库
-- [PyLaTeX](https://github.com/JelteF/PyLaTeX) - Python LaTeX 文档生成
-- [Reddit](https://www.reddit.com/) - 提供内容来源
-
-特别感谢所有贡献者和提供反馈的用户，你们的支持是项目持续改进的动力。
-
-## ⚠️ 免责声明
-
-1. **内容合规性**：本工具仅用于技术学习与研究。用户应遵守相关法律法规，不得用于任何违法用途。使用过程中产生的任何法律责任由用户自行承担。
-
-2. **数据来源**：本工具爬取的内容来自 Reddit 等公开平台，不保证内容的准确性、完整性或适用性。使用者应自行判断所获取信息的真实性和价值。
-
-3. **版权声明**：使用本工具生成的报告可能包含来自第三方的内容。使用者应尊重原始内容的版权，在传播和使用时遵守相关版权法规。
-
-4. **API 使用**：本工具依赖 DeepSeek 等第三方 API 服务。使用者需自行获取合法的 API 密钥，并遵守相关服务提供商的使用条款。
-
-5. **免责声明**：开发者不对使用本工具产生的任何直接或间接损失负责，包括但不限于数据丢失、系统损坏或业务中断。
-
-6. **隐私保护**：本工具不会收集用户个人信息。但用户在使用过程中可能向第三方 API 传输数据，请注意保护个人隐私。
-
-使用本工具即表示您已阅读并同意上述免责声明的全部内容。
-
-## 📄 许可证
-
-[MIT](LICENSE)
+- `reddit_url`: 默认爬取的 Reddit URL。
+- `post_cleanup_hours`: 默认抓取的时间范围（小时）。
+- `report_title`: PDF 报告的标题。
+- `report_prefix`: PDF 报告文件名的前缀。
+- `temperature`: 不同阶段调用 LLM API 时的温度参数。
 
 ---
 
-<p align="center">
-  <sub>Made with ❤️ by LLM Report Tool Team</sub>
-</p>
+## ⚠️ 免责声明
+
+> - 本工具生成的摘要、分类和热点总结均由大型语言模型（DeepSeek API）自动生成，可能包含不准确、不完整或有偏见的信息。**请用户自行判断内容的准确性和可靠性**。
+> - 本工具仅用于**学习和技术研究**目的。对于使用本工具抓取、处理或生成的内容，以及由此产生的任何后果，开发者不承担任何责任。
+> - 请确保您有权访问和使用目标 Reddit 版块的内容，并遵守 **Reddit 的服务条款**。
+> - 使用 API 可能产生费用，请查阅 **DeepSeek API** 的定价策略。
+
+---
+
+## 🙏 致谢
+
+> - 感谢 **Reddit** 提供了丰富的信息来源。
+> - 感谢 **DeepSeek** 提供了强大的 LLM API 支持。
+> - 感谢 **Selenium**, **Requests**, **BeautifulSoup4**, **Pandas**, **PyLaTeX** 等开源库的开发者。
+> - 感谢 **MiKTeX/TeX Live** 社区提供了优秀的 TeX 发行版。
+
+---
+
+希望这份 README 对您有所帮助！

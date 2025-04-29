@@ -11,6 +11,8 @@ import requests
 from typing import Optional, Union, List, Dict
 from pathlib import Path
 from ..utils.config import config, logger
+import argparse
+import re
 
 class TextSummarizer:
     """文本总结类，使用DeepSeek API生成摘要"""
@@ -67,91 +69,52 @@ class TextSummarizer:
             logger.error(traceback.format_exc())
             raise
     
-    def generate_prompt(self, posts: List[Dict]) -> str:
+    def generate_prompt(self, post: Dict) -> str:
         """
-        根据帖子列表生成提示词
+        根据单个帖子生成提示词
         
         Args:
-            posts: 帖子列表，每个帖子包含标题和内容
+            post: 单个帖子字典，包含标题、内容和可选的图片URL
             
         Returns:
             用于生成摘要的提示词
         """
-        messages = []
-        for i, post in enumerate(posts):
-            title = post.get("post_title", "无标题")
-            content = post.get("post_content", "无内容").strip()
-            
-            # 获取图片信息（如果有）
-            image_info = ""
-            if "post_images" in post and post["post_images"]:
-                images = post["post_images"]
-                if isinstance(images, str) and images.strip():
-                    image_urls = images.split("; ")
-                    num_images = len(image_urls)
-                    if num_images > 0:
-                        image_info = f"\n图片信息：该帖子包含{num_images}张图片"
-                        # 添加图片URL和潜在内容提示
-                        image_info += "\n图片URL（请分析图片可能包含的信息）："
-                        for j, url in enumerate(image_urls[:5]):  # 最多添加5张图片URL
-                            image_info += f"\n- {url}"
-                            # 根据图片URL判断内容类型
-                            if "chart" in url.lower() or "graph" in url.lower():
-                                image_info += "（可能包含数据图表或性能统计）"
-                            elif "screenshot" in url.lower():
-                                image_info += "（可能是界面截图或代码截图）"
-                            elif "diagram" in url.lower() or "architecture" in url.lower():
-                                image_info += "（可能是系统架构图或流程图）"
-                        if num_images > 5:
-                            image_info += f"\n...(以及其他{num_images-5}张图片)"
-            
-            # 限制每个帖子的长度，避免超过token限制
-            max_content_length = 1000
-            if len(content) > max_content_length:
-                content = content[:max_content_length] + "...(内容已截断)"
-                
-            messages.append(f"帖子{i+1}:\n标题：{title}\n内容：{content}{image_info}")
+        title = post.get("post_title", "无标题")
+        content = post.get("post_content", "无内容").strip()
         
-        batch_message = "\n\n---\n\n".join(messages)
+        # 限制帖子的长度，避免超过token限制
+        max_content_length = 1500 # 单个帖子可以适当增加长度
+        if len(content) > max_content_length:
+            content = content[:max_content_length] + "...(内容已截断)"
+            
+        post_details = f"标题：{title}\n内容：{content}"
         
         prompt_template = """
-        我将提供一些来自Reddit的LLM（大语言模型）相关帖子内容。请对这些内容进行分析和总结，按以下结构组织：
-
-        ## 大语言模型领域的重要进展
-        (总结关于模型发布、性能突破、新技术等重要进展)
-
-        ## 实用技巧与应用
-        (总结有关使用技巧、工具应用、优化方法等实用内容)
-
-        ## 其他值得关注的动态
-        (总结其他相关趋势、讨论或值得关注的信息)
+        我将提供一些来自Reddit的LLM（大语言模型）相关帖子的内容，请对这些帖子进行总结。
 
         要求：
-        1. 总结长度必须在300-400字之间，不要过长或过短
-        2. 总结应基于我提供的内容，忠实原文，不要添加不存在的事件
-        3. 如果内容中有技术术语或专有名词，请保持原样
-        4. 使用简洁清晰的中文表述
-        5. 确保每个段落都含有核心信息点，对每个帖子内容进行充分提炼
-        6. 特别注意分析帖子中包含的图片信息。例如：
-           - 如果图片显示数据图表或性能对比，请在摘要中提及这些数据点
-           - 如果图片包含代码或架构图，请尝试描述其主要功能或设计
-           - 如果图片展示了用户界面，请概述其功能或特点
-        7. 在摘要中，明确标注哪些信息来自图片分析（例如："根据图片显示的性能数据..."）
+        1. 总结必须专注于我提供的这些帖子。
+        2. 请直接生成该帖子的总结内容，使用分点（例如：(1), (2)...）或编号列表组织，确保每个分点之间只用一个换行符分隔，不要添加额外的空行。不要在你的回复中包含帖子编号和标题。
+        3. 每个帖子总结长度在400-500字之间。
+        4. 总结应基于帖子原文，忠实反映其核心信息，不要添加不存在的事件。
+        5. 如果内容中有技术术语或专有名词，请保持原样。
+        6. 使用简洁清晰的中文表述。
+        7. 充分提炼帖子的核心信息点，每个帖子的总结合理分点。
 
         以下是需要总结的帖子内容：
         
-        {message}
+        {details}
         """
         
-        return prompt_template.format(message=batch_message)
+        return prompt_template.format(details=post_details)
     
-    def _make_api_call_with_retry(self, prompt: str, batch_range: str) -> Optional[str]:
+    def _make_api_call_with_retry(self, prompt: str, log_identifier: str) -> Optional[str]:
         """
         带重试机制的API调用
         
         Args:
             prompt: 提示词
-            batch_range: 当前处理的批次范围，用于日志记录
+            log_identifier: 用于日志记录的标识符 (例如：帖子索引或标题)
             
         Returns:
             API响应文本，失败时返回None
@@ -160,7 +123,7 @@ class TextSummarizer:
             try:
                 # 记录当前尝试次数
                 if attempt > 0:
-                    logger.info(f"第 {attempt+1}/{self.max_retries} 次尝试调用API，批次 {batch_range}")
+                    logger.info(f"第 {attempt+1}/{self.max_retries} 次尝试调用API，针对: {log_identifier}")
                 
                 # 构建请求数据
                 data = {
@@ -199,7 +162,7 @@ class TextSummarizer:
                 else:
                     logger.warning(f"API返回了无效响应: {response_data}")
             except Exception as e:
-                logger.error(f"API调用出错 (尝试 {attempt+1}/{self.max_retries}): {e}")
+                logger.error(f"API调用出错 (尝试 {attempt+1}/{self.max_retries}) 针对 {log_identifier}: {e}")
                 logger.debug(traceback.format_exc())
                 
                 if attempt < self.max_retries - 1:
@@ -208,7 +171,7 @@ class TextSummarizer:
                     logger.info(f"等待 {wait_time:.2f} 秒后重试...")
                     time.sleep(wait_time)
             
-        logger.error(f"达到最大重试次数 {self.max_retries}，无法获取响应")
+        logger.error(f"达到最大重试次数 {self.max_retries}，无法获取 {log_identifier} 的响应")
         return None
     
     def summarize_posts(self) -> bool:
@@ -241,64 +204,91 @@ class TextSummarizer:
                 logger.error(f"输入数据缺少必要的列: {', '.join(missing_columns)}")
                 return False
             
-            # 检查是否存在图片列
-            has_image_column = 'post_images' in df.columns
-            if has_image_column:
-                logger.info("检测到图片列，将在摘要时包含图片信息")
-            else:
-                logger.info("未检测到图片列，将只处理文本内容")
-            
             # 将DataFrame转换为字典列表，便于处理
             records = df.to_dict('records')
             
+            total_posts = len(records)
+            summarized_count = 0
+            failed_count = 0
+            
             with open(self.output_file, "w", encoding="utf-8") as f:
                 # 先写入文件头部信息
-                f.write(f"# LLM相关新闻日报摘要 ({self.input_file.stem})\n\n")
-                f.write(f"基于 {len(records)} 条当天Reddit帖子生成\n\n")
+                f.write(f"# LLM 相关新闻日报摘要 ({self.input_file.stem})\n\n")
+                f.write(f"基于 {total_posts} 条高质量 Reddit 帖子生成\n\n")
                 
-                success_count = 0
-                i = 0
-                while i < len(records):
-                    # 随机生成批处理大小，但确保至少有1个记录
-                    batch_size = max(1, random.randint(self.batch_size_min, min(self.batch_size_max, len(records) - i)))
-                    batch = records[i:min(i + batch_size, len(records))]
+                for i, record in enumerate(records):
+                    post_index = i + 1
+                    post_title = record.get('post_title', '无标题')
+                    post_url = record.get('post_url', 'URL_Not_Found') # 获取 URL
+                    log_identifier = f"帖子 {post_index}/{total_posts} ('{post_title[:30]}...')"
+                    logger.info(f"正在处理: {log_identifier}")
                     
-                    # 记录当前批次的范围
-                    batch_range = f"Rows {i + 2} to {min(i + batch_size + 1, len(records) + 1)}"
-                    logger.info(f"正在处理第 {batch_range} 条记录 (共 {batch_size} 条)...")
-                    
-                    # 生成提示词
-                    prompt = self.generate_prompt(batch)
-                    
+                    # 第一个帖子前不加空行，后续帖子前加三个空行以确保两行空白
+                    if i > 0:
+                        f.write("\n\n\n") # Write three newlines
+                        
                     try:
-                        # 使用带重试的API调用
-                        response_text = self._make_api_call_with_retry(prompt, batch_range)
+                        prompt = self.generate_prompt(record)
+                        response_text = self._make_api_call_with_retry(prompt, log_identifier)
                         
                         if response_text:
-                            # 写入批次信息和响应
-                            f.write(f"## 批次 {batch_range} ({batch_size}条帖子):\n\n")
-                            f.write(response_text + "\n\n")
-                            logger.info(f"✓ 成功生成批次 {batch_range} 的摘要")
-                            success_count += 1
+                            # --- Post-processing --- START
+                            cleaned_response_text = response_text.strip()
+                            # (移除查找链接行的逻辑，因为现在由Python处理)
+                            # link_pattern = r'\n*\s*\[原文链接\]\(.*\]\)?'
+                            # match = re.search(link_pattern, cleaned_response_text, re.IGNORECASE)
+                            # summary_body = cleaned_response_text
+                            # link_line = ""
+                            # if match:
+                            #     link_start_index = match.start()
+                            #     summary_body = cleaned_response_text[:link_start_index].rstrip()
+                            #     link_line = cleaned_response_text[link_start_index:].strip()
+                            
+                            # 直接清理整个返回文本中的多余换行
+                            cleaned_summary_body = re.sub(r'(\n\s*){2,}', '\n', cleaned_response_text)
+                            
+                            # (移除重构逻辑)
+                            # final_text = cleaned_summary_body
+                            # if link_line: 
+                            #     final_text += "\n" + link_line
+                            final_text = cleaned_summary_body # 清理后的文本即为最终摘要
+                            # --- Post-processing --- END
+                                
+                            # 写入标题 (后面依然是两个换行)
+                            f.write(f"## {post_index}. {post_title}\n\n") 
+                            # 写入清理后的摘要内容
+                            f.write(final_text) 
+                            # 在摘要后写入链接 (前面一个换行)
+                            f.write(f"\n[原文链接]({post_url})") 
+                            
+                            f.flush()
+                            logger.info(f"✓ 成功生成摘要 for {log_identifier}")
+                            summarized_count += 1
                         else:
-                            error_msg = f"无法生成摘要 for {batch_range}"
-                            f.write(f"### {error_msg}\n\n")
-                            logger.error(error_msg)
+                            # API 调用失败
+                            f.write(f"## {post_index}. {post_title}\n\n")
+                            f.write(f"*摘要生成失败*\n\n")
+                            f.write(f"\n[原文链接]({post_url})")
+                            f.flush()
+                            logger.error(f"无法生成摘要 for {log_identifier}")
+                            failed_count += 1
+                            
                     except Exception as e:
-                        error_msg = f"摘要生成错误 for {batch_range}: {e}"
-                        f.write(f"### {error_msg}\n\n")
-                        logger.error(error_msg)
+                        # 其他错误
+                        logger.error(f"处理 {log_identifier} 时发生意外错误: {e}")
                         logger.debug(traceback.format_exc())
+                        f.write(f"## {post_index}. {post_title}\n\n")
+                        f.write(f"*处理过程中发生错误，跳过此帖*\n\n")
+                        f.write(f"\n[原文链接]({post_url})")
+                        f.flush()
+                        failed_count += 1
+                        continue 
                     
-                    # 在批次之间添加一些延迟，避免API速率限制
-                    time.sleep(random.uniform(1.0, 3.0))
-                    
-                    # 移动到下一批
-                    i += batch_size
+                    time.sleep(random.uniform(0.5, 1.5))
             
-                # 写入摘要统计信息
-                logger.info(f"摘要生成完成: 成功 {success_count} 批次，共处理 {len(records)} 条记录")
-                if success_count > 0:
+                # 循环结束后
+                logger.info(f"摘要生成完成: 成功 {summarized_count} 篇, 失败 {failed_count} 篇，共处理 {total_posts} 条帖子")
+                if summarized_count > 0:
                     return True
                 else:
                     logger.error("未能成功生成任何摘要")
@@ -330,4 +320,19 @@ def run(input_file: Optional[str] = None, output_file: Optional[str] = None) -> 
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description="运行文本摘要生成器")
+    parser.add_argument(
+        "--input", 
+        type=str, 
+        help="指定输入的 Excel 文件路径 (例如：data/reddit_posts_2024-01-01.xlsx)。如果未指定，则使用 config.cleaned_posts_file"
+    )
+    parser.add_argument(
+        "--output", 
+        type=str, 
+        help="指定输出的摘要文件路径 (例如：data/my_summaries.txt)。如果未指定，则使用 config.summaries_file"
+    )
+
+    args = parser.parse_args()
+
+    # 使用命令行参数调用 run 函数
+    run(input_file=args.input, output_file=args.output)

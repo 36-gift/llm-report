@@ -57,7 +57,7 @@ class Config:
         self.summary_batch_size_max = int(os.environ.get("SUMMARY_BATCH_MAX", "10"))
         
         # LLM模型相关参数
-        self.temperature_summarizer = float(os.environ.get("TEMPERATURE_SUMMARIZER", "0.8"))
+        self.temperature_summarizer = float(os.environ.get("TEMPERATURE_SUMMARIZER", "0.6"))
         self.temperature_topic_extractor = float(os.environ.get("TEMPERATURE_TOPIC_EXTRACTOR", "0.8"))
         self.temperature_data_cleaner = float(os.environ.get("TEMPERATURE_DATA_CLEANER", "0.8"))
         

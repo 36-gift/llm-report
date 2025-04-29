@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from llm_report_tool.scrapers.reddit_scraper import run as run_scraper
 from llm_report_tool.processors.data_cleaner import run as run_cleaner
 from llm_report_tool.processors.summarizer import run as run_summarizer
-from llm_report_tool.processors.topic_extractor import run as run_topic_extractor
+from llm_report_tool.processors.classifier import run as run_classifier
 from llm_report_tool.processors.latex_report_generator import run as run_latex_report_generator
 from llm_report_tool.utils.config import config, logger
 
@@ -40,6 +40,12 @@ def parse_args():
     parser.add_argument("--reddit-url", type=str, help=f"Reddit版块URL，默认: {config.reddit_url}")
     parser.add_argument("--hours", type=int, help=f"过滤多少小时前的新闻，默认: {config.post_cleanup_hours}小时（当天）")
     parser.add_argument("--output-dir", type=str, help="指定输出目录")
+    
+    # New argument for classifier input
+    parser.add_argument("--classifier-input-file", type=str, help="指定摘要分类器使用的输入摘要文件路径")
+    
+    # New argument for report generator input
+    parser.add_argument("--report-input-file", type=str, help="指定PDF报告生成器使用的输入JSON文件路径")
     
     # 性能选项
     parser.add_argument("--python-version", type=str, default="3.10", help="指定Python版本")
@@ -107,18 +113,22 @@ def run_workflow(args) -> bool:
     else:
         logger.info("已跳过摘要生成阶段")
     
-    # 4. 主题抽取与分类阶段
+    # 4. 智能分类阶段
     if not args.skip_topic:
-        logger.info("=== 开始执行主题抽取与分类 ===")
-        if not run_topic_extractor():
-            logger.warning("主题抽取阶段失败，但将继续执行报告生成")
+        logger.info("=== 开始执行摘要智能分类 ===")
+        # Pass the specific input file if provided
+        if not run_classifier(input_file=args.classifier_input_file):
+            logger.warning("摘要智能分类阶段失败或部分失败，但将继续执行报告生成")
     else:
-        logger.info("已跳过主题抽取阶段")
+        logger.info("已跳过摘要智能分类阶段")
     
-    # 5. 报告生成阶段 - 仅生成PDF格式
+    # 5. 报告生成阶段
     if not args.no_pdf:
         logger.info("=== 开始执行PDF报告生成 ===")
-        if not run_latex_report_generator():
+        # Use the specified report input file if provided, otherwise default to today's classified file
+        report_input_path = args.report_input_file or str(config.data_dir / f"classified_summaries_{config.current_date}.json")
+        logger.info(f"将使用以下文件生成报告: {report_input_path}")
+        if not run_latex_report_generator(classified_summary_file=report_input_path):
             logger.error("PDF报告生成阶段失败")
             success = False
     else:
@@ -142,7 +152,7 @@ def main():
     
     # 检查API密钥
     if not config.deepseek_api_key and not (args.skip_summary and args.skip_topic):
-        logger.error("错误：未设置DEEPSEEK_API_KEY环境变量，摘要和主题分析功能将无法使用。")
+        logger.error("错误：未设置DEEPSEEK_API_KEY环境变量，摘要生成和智能分类功能将无法使用。")
         logger.error("请设置环境变量或使用--skip-summary和--skip-topic选项跳过相关功能。")
         return 1
     
@@ -164,5 +174,6 @@ def main():
         logger.exception(f"执行过程中发生错误: {e}")
         return 1
 
+# Add the execution block here
 if __name__ == "__main__":
     sys.exit(main())

@@ -45,40 +45,31 @@ class DataCleaner:
         # 使用deepseek-chat模型
         self.model_name = "deepseek-chat"
     
-    def _analyze_content_quality(self, content: str, image_urls: Optional[List[str]] = None) -> float:
+    def _analyze_content_quality(self, content: str) -> float:
         """
         使用API分析内容质量并返回分数
         
         Args:
             content: 文本内容
-            image_urls: 图片URL列表，可选
             
         Returns:
             质量分数，0-1之间的浮点数
         """
         try:
-            # 构建提示
-            image_info = ""
-            if image_urls and len(image_urls) > 0:
-                image_info = f"\n\n帖子包含 {len(image_urls)} 张图片，图片URL:\n" + "\n".join(image_urls[:3])
-                if len(image_urls) > 3:
-                    image_info += f"\n...等共 {len(image_urls)} 张图片"
-            
-            prompt = f"""請分析以下Reddit帖子的質量，考慮以下因素：
-            - 內容相關性（與AI、機器學習、深度學習、LLM、語言模型相關）
-            - 資訊密度
-            - 技術深度
-            - 內容有用性
-            - 寫作質量
+            prompt = f"""请分析以下Reddit帖子的质量，考虑以下因素：
+            - 内容相关性（与AI、机器学习、深度学习、LLM、语言模型相关）
+            - 信息密度
+            - 技术深度
+            - 内容有用性
+            - 写作质量
             
             文本：
             {content}
-            {image_info}
             
-            僅返回0到1之間的質量分數，不需要解釋。分數含義：
-            - 0-0.3：低質量或不相關
-            - 0.3-0.6：一般質量或部分相關
-            - 0.6-1.0：高質量且相關
+            仅返回0到1之间的质量分数，不需要解释。分数含义：
+            - 0-0.3：低质量或不相关
+            - 0.3-0.6：一般质量或部分相关
+            - 0.6-1.0：高质量且相关
             """
             
             # 调用API
@@ -88,8 +79,8 @@ class DataCleaner:
                 json={
                     "model": self.model_name,
                     "messages": [
-                        {"role": "system", "content": "你是一個內容質量評估專家，精通AI和機器學習領域。" 
-                                                     "你的任務是評估文本內容的質量和相關性。請寬鬆評分，允許更多樣化的內容。"},
+                        {"role": "system", "content": "你是一个内容质量评估专家，精通AI和机器学习领域。" 
+                                                     "你的任务是评估文本内容的质量和相关性。请宽松评分，允许更多样化的内容。"},
                         {"role": "user", "content": prompt}
                     ],
                     "temperature": config.temperature_data_cleaner,
@@ -146,50 +137,44 @@ class DataCleaner:
             # 检查数据格式和内容
             logger.info(f"数据列：{', '.join(df.columns)}")
             
-            # 清洗真正空白的内容（既没有文字也没有图片）
-            if 'post_content' in df.columns and 'post_images' in df.columns:
+            # 清洗真正空白的内容 (只检查 post_content)
+            if 'post_content' in df.columns:
                 empty_text_mask = df['post_content'].isna() | (df['post_content'] == '') | (df['post_content'] == '内容未找到')
-                no_images_mask = df['post_images'].isna() | (df['post_images'] == '')
-                truly_empty_mask = empty_text_mask & no_images_mask
                 
-                if truly_empty_mask.any():
-                    empty_count = truly_empty_mask.sum()
-                    logger.info(f"发现 {empty_count} 条真正空白内容（无文字且无图片），将被移除")
-                    df = df[~truly_empty_mask]
+                if empty_text_mask.any():
+                    empty_count = empty_text_mask.sum()
+                    logger.info(f"发现 {empty_count} 条空白内容（无有效文字），将被移除")
+                    df = df[~empty_text_mask]
                     logger.info(f"清洗后保留 {len(df)} 条记录")
             
             # 创建一个新的quality_score列
             df['quality_score'] = 0.0
             
-            # 只进行内容质量评分，不过滤数据
+            # 进行内容质量评分
             logger.info("开始对内容进行质量评分...")
             for i, (idx, row) in enumerate(df.iterrows()):
                 content = row['post_content']
                 
-                # 获取图片URL列表（如果有）
-                image_urls = []
-                if 'post_images' in df.columns and pd.notna(row['post_images']) and row['post_images'] != '':
-                    image_urls = row['post_images'].split('; ') if isinstance(row['post_images'], str) else []
-                
-                # 图片帖子直接给予中等以上分数
-                if isinstance(content, str) and content.startswith('[图片帖子]'):
-                    df.at[idx, 'quality_score'] = 0.65
-                    continue
-                
                 try:
-                    # 将图片URL传递给分析函数
-                    score = self._analyze_content_quality(content, image_urls)
+                    score = self._analyze_content_quality(content)
                     df.at[idx, 'quality_score'] = score
-                    logger.info(f"内容 {i+1}/{len(df)} 质量分数: {score:.2f}{' (含图片)' if image_urls else ''}")
+                    logger.info(f"内容 {i+1}/{len(df)} 质量分数: {score:.2f}")
                 except Exception as e:
                     logger.error(f"分析内容质量时出错: {str(e)}")
                     # 出错时给予中等分数
                     df.at[idx, 'quality_score'] = 0.5
             
-            # 保存带质量分数的数据
+            # 根据质量分数筛选数据
+            initial_count = len(df)
+            quality_threshold = 0.60
+            df = df[df['quality_score'] >= quality_threshold]
+            filtered_count = len(df)
+            removed_count = initial_count - filtered_count
+            logger.info(f"质量评分完成。根据阈值 {quality_threshold} 进行筛选，保留 {filtered_count} 条记录，移除了 {removed_count} 条记录。")
+
+            # 保存筛选后的数据
             df.to_excel(self.output_file, index=False)
-            logger.info(f"质量分析完成，保留 {len(df)} 条记录")
-            logger.info(f"添加质量分数后的数据已保存到 {self.output_file}")
+            logger.info(f"已将筛选后的高质量数据保存到 {self.output_file}")
             
             return df
             
