@@ -2,8 +2,8 @@
 
 <!-- Placeholder Badges -->
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white" alt="Python Version">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+  ![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+  ![License](https://img.shields.io/badge/License-MIT-green)
   <!-- Add other relevant badges here, e.g., build status, coverage -->
 </p>
 
