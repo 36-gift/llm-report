@@ -374,12 +374,12 @@ class RedditScraper:
         使用 Reddit JSON API 后备提取帖子信息 (仅标题、内容)。
         增加了重试逻辑以处理包括SSLError在内的临时网络问题。
         """
-        # 构造 JSON API 地址
-        api_url = url.rstrip('/') + '.json'
-        headers = {'User-Agent': random.choice(self.user_agents), 'Accept': 'application/json'}
+            # 构造 JSON API 地址
+            api_url = url.rstrip('/') + '.json'
+            headers = {'User-Agent': random.choice(self.user_agents), 'Accept': 'application/json'}
         response = requests.get(api_url, headers=headers, timeout=20)
         response.raise_for_status() # 如果状态码不是 2xx，则抛出异常
-        data = response.json()
+            data = response.json()
 
         try:
             # Reddit JSON 返回列表，首项包含帖子详情
@@ -413,13 +413,13 @@ class RedditScraper:
 
         # 尝试通过 JSON API 获取信息
         try:
-            json_info = self._extract_post_info_via_json(url)
+        json_info = self._extract_post_info_via_json(url)
         except Exception as e:
             logger.warning(f"调用 _extract_post_info_via_json 失败 ({url}): {e}", exc_info=True)
 
         # 尝试通过 HTML 获取信息
         try:
-            with requests.Session() as session:
+        with requests.Session() as session:
                 response = session.get(url, headers=headers, timeout=20) # 增加 HTML 请求超时
                 response.raise_for_status() # 检查 HTML 请求是否成功
                 html_info = self.extract_post_info(response.text)
@@ -429,7 +429,7 @@ class RedditScraper:
             logger.warning(f"调用 extract_post_info 失败 ({url}): {e}", exc_info=True)
 
         # 合并信息：优先 JSON，HTML 补充
-        if json_info:
+                if json_info:
             final_post_data.update(json_info)
         
         if html_info:
@@ -549,7 +549,7 @@ class RedditScraper:
                 if post_data:
                     # 直接为帖子数据添加运行日期
                     post_data['post_date'] = self.today.isoformat()
-                    all_posts_data.append(post_data)
+                        all_posts_data.append(post_data)
                 else:
                     logger.warning(f"无法提取帖子信息: {url}")
                     

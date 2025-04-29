@@ -1,11 +1,9 @@
 # <center>📰 LLM 新闻日报自动生成工具 🤖</center>
 
 <!-- Placeholder Badges -->
-<p align="center">
-  ![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-  ![License](https://img.shields.io/badge/License-MIT-green)
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white" alt="Python Version">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
   <!-- Add other relevant badges here, e.g., build status, coverage -->
-</p>
 
 ---
 

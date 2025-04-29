@@ -79,14 +79,14 @@ class TextSummarizer:
         Returns:
             用于生成摘要的提示词
         """
-        title = post.get("post_title", "无标题")
-        content = post.get("post_content", "无内容").strip()
-        
+            title = post.get("post_title", "无标题")
+            content = post.get("post_content", "无内容").strip()
+            
         # 限制帖子的长度，避免超过token限制
         max_content_length = 1500 # 单个帖子可以适当增加长度
-        if len(content) > max_content_length:
-            content = content[:max_content_length] + "...(内容已截断)"
-            
+            if len(content) > max_content_length:
+                content = content[:max_content_length] + "...(内容已截断)"
+                
         post_details = f"标题：{title}\n内容：{content}"
         
         prompt_template = """
@@ -285,7 +285,7 @@ class TextSummarizer:
                         continue 
                     
                     time.sleep(random.uniform(0.5, 1.5))
-            
+                    
                 # 循环结束后
                 logger.info(f"摘要生成完成: 成功 {summarized_count} 篇, 失败 {failed_count} 篇，共处理 {total_posts} 条帖子")
                 if summarized_count > 0:
