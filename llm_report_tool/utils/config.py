@@ -36,12 +36,11 @@ class Config:
         self.reddit_posts_file = self.data_dir / f"reddit_posts_{self.current_date}.xlsx"
         self.cleaned_posts_file = self.data_dir / f"cleaned_reddit_posts_{self.current_date}.xlsx"
         self.summaries_file = self.data_dir / f"summaries_{self.current_date}.txt"
-        self.report_file = self.reports_dir / f"{self.current_date}-llm-news.docx"
         
         # 加载API密钥
-        self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
-        if not self.gemini_api_key:
-            logger.warning("未找到GEMINI_API_KEY环境变量，某些功能可能无法正常工作")
+        self.deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not self.deepseek_api_key:
+            logger.warning("未找到DEEPSEEK_API_KEY环境变量，某些功能可能无法正常工作")
             
         # 从环境变量设置调试模式
         self.debug = os.environ.get("DEBUG", "").lower() in ("true", "t", "1")
@@ -53,9 +52,18 @@ class Config:
             
         # 可配置参数
         self.reddit_url = os.environ.get("REDDIT_URL", "https://www.reddit.com/r/LocalLLaMA/")
-        self.post_cleanup_hours = int(os.environ.get("POST_CLEANUP_HOURS", "48"))
+        self.post_cleanup_hours = int(os.environ.get("POST_CLEANUP_HOURS", "24"))  # 默认1天(24小时)
         self.summary_batch_size_min = int(os.environ.get("SUMMARY_BATCH_MIN", "5"))
         self.summary_batch_size_max = int(os.environ.get("SUMMARY_BATCH_MAX", "10"))
+        
+        # LLM模型相关参数
+        self.temperature_summarizer = float(os.environ.get("TEMPERATURE_SUMMARIZER", "0.8"))
+        self.temperature_topic_extractor = float(os.environ.get("TEMPERATURE_TOPIC_EXTRACTOR", "0.8"))
+        self.temperature_data_cleaner = float(os.environ.get("TEMPERATURE_DATA_CLEANER", "0.8"))
+        
+        # 报告相关配置
+        self.report_title = "LLM技术日报"
+        self.report_prefix = "llm-news-daily"
         
         # 尝试加载自定义配置文件
         self._load_custom_config()
@@ -76,6 +84,19 @@ class Config:
                 if "summary_batch_size" in custom_config:
                     self.summary_batch_size_min = custom_config["summary_batch_size"]["min"]
                     self.summary_batch_size_max = custom_config["summary_batch_size"]["max"]
+                if "report_title" in custom_config:
+                    self.report_title = custom_config["report_title"]
+                if "report_prefix" in custom_config:
+                    self.report_prefix = custom_config["report_prefix"]
+                    
+                # 加载LLM模型相关参数
+                if "temperature" in custom_config:
+                    if "summarizer" in custom_config["temperature"]:
+                        self.temperature_summarizer = custom_config["temperature"]["summarizer"]
+                    if "topic_extractor" in custom_config["temperature"]:
+                        self.temperature_topic_extractor = custom_config["temperature"]["topic_extractor"]
+                    if "data_cleaner" in custom_config["temperature"]:
+                        self.temperature_data_cleaner = custom_config["temperature"]["data_cleaner"]
                     
                 logger.info(f"已从{config_file}加载自定义配置")
             except Exception as e:

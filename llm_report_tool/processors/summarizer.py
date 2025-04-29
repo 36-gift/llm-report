@@ -1,19 +1,19 @@
 """
-文本总结模块，使用Gemini API对清洗后的数据进行摘要生成
+文本总结模块，使用DeepSeek API对清洗后的数据进行摘要生成
 """
 import os
 import random
 import pandas as pd
 import time
 import traceback
+import json
+import requests
 from typing import Optional, Union, List, Dict
 from pathlib import Path
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from ..utils.config import config, logger
 
 class TextSummarizer:
-    """文本总结类，使用Gemini API生成摘要"""
+    """文本总结类，使用DeepSeek API生成摘要"""
     
     def __init__(self, 
                  input_file: Optional[Union[str, Path]] = None,
@@ -25,54 +25,45 @@ class TextSummarizer:
         Args:
             input_file: 输入文件路径，默认使用配置中的路径
             output_file: 输出文件路径，默认使用配置中的路径
-            api_key: Gemini API密钥，默认从配置中获取
+            api_key: DeepSeek API密钥，默认从配置中获取
         """
         self.input_file = Path(input_file) if input_file else config.cleaned_posts_file
         self.output_file = Path(output_file) if output_file else config.summaries_file
-        self.api_key = api_key or config.gemini_api_key
+        self.api_key = api_key or config.deepseek_api_key
         self.batch_size_min = config.summary_batch_size_min
         self.batch_size_max = config.summary_batch_size_max
         self.max_retries = 3  # 添加重试次数
+        self.base_url = "https://api.deepseek.com/v1"
         
         if not self.api_key:
-            raise ValueError("未提供Gemini API密钥，请设置环境变量GEMINI_API_KEY或通过参数提供")
+            raise ValueError("未提供DeepSeek API密钥，请设置环境变量DEEPSEEK_API_KEY或通过参数提供")
         
-        # 初始化Gemini API
-        self._setup_gemini()
+        # 初始化API配置
+        self._setup_api_config()
     
-    def _setup_gemini(self) -> None:
-        """初始化Gemini API配置"""
+    def _setup_api_config(self) -> None:
+        """初始化DeepSeek API配置"""
         try:
-            genai.configure(api_key=self.api_key)
-            
             # 生成配置
             self.generation_config = {
-                "temperature": 0.7,  # 降低温度使输出更稳定
+                "temperature": config.temperature_summarizer,
                 "top_p": 0.95,
-                "top_k": 40,
-                "max_output_tokens": 8192,
-                "response_mime_type": "text/plain",
+                "max_tokens": 4096,
+                "stream": False
             }
             
-            # 安全设置 - 降低阈值避免模型过度过滤
-            self.safety_settings = {
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            # 设置API头信息
+            self.headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}"
             }
             
-            # 创建模型
-            self.model = genai.GenerativeModel(
-                model_name="gemini-1.5-pro",  # 改用更稳定的1.5-pro
-                generation_config=self.generation_config,
-                safety_settings=self.safety_settings,
-                system_instruction="你是一位专业的文本摘要工具，擅长总结技术内容。请使用中文回复，提供准确、简洁的摘要。"
-            )
+            # 使用deepseek-chat模型
+            self.model_name = "deepseek-chat"
             
-            logger.info(f"Gemini API 已初始化，使用模型：gemini-1.5-pro")
+            logger.info(f"DeepSeek API 已初始化，使用模型：{self.model_name}，temperature={self.generation_config['temperature']}")
         except Exception as e:
-            logger.error(f"初始化Gemini API时出错: {e}")
+            logger.error(f"初始化DeepSeek API时出错: {e}")
             logger.error(traceback.format_exc())
             raise
     
@@ -91,12 +82,35 @@ class TextSummarizer:
             title = post.get("post_title", "无标题")
             content = post.get("post_content", "无内容").strip()
             
+            # 获取图片信息（如果有）
+            image_info = ""
+            if "post_images" in post and post["post_images"]:
+                images = post["post_images"]
+                if isinstance(images, str) and images.strip():
+                    image_urls = images.split("; ")
+                    num_images = len(image_urls)
+                    if num_images > 0:
+                        image_info = f"\n图片信息：该帖子包含{num_images}张图片"
+                        # 添加图片URL和潜在内容提示
+                        image_info += "\n图片URL（请分析图片可能包含的信息）："
+                        for j, url in enumerate(image_urls[:5]):  # 最多添加5张图片URL
+                            image_info += f"\n- {url}"
+                            # 根据图片URL判断内容类型
+                            if "chart" in url.lower() or "graph" in url.lower():
+                                image_info += "（可能包含数据图表或性能统计）"
+                            elif "screenshot" in url.lower():
+                                image_info += "（可能是界面截图或代码截图）"
+                            elif "diagram" in url.lower() or "architecture" in url.lower():
+                                image_info += "（可能是系统架构图或流程图）"
+                        if num_images > 5:
+                            image_info += f"\n...(以及其他{num_images-5}张图片)"
+            
             # 限制每个帖子的长度，避免超过token限制
             max_content_length = 1000
             if len(content) > max_content_length:
                 content = content[:max_content_length] + "...(内容已截断)"
                 
-            messages.append(f"帖子{i+1}:\n标题：{title}\n内容：{content}")
+            messages.append(f"帖子{i+1}:\n标题：{title}\n内容：{content}{image_info}")
         
         batch_message = "\n\n---\n\n".join(messages)
         
@@ -113,10 +127,16 @@ class TextSummarizer:
         (总结其他相关趋势、讨论或值得关注的信息)
 
         要求：
-        1. 总结应基于我提供的内容，忠实原文，不要添加不存在的事件
-        2. 总结应有300字以上
+        1. 总结长度必须在300-400字之间，不要过长或过短
+        2. 总结应基于我提供的内容，忠实原文，不要添加不存在的事件
         3. 如果内容中有技术术语或专有名词，请保持原样
         4. 使用简洁清晰的中文表述
+        5. 确保每个段落都含有核心信息点，对每个帖子内容进行充分提炼
+        6. 特别注意分析帖子中包含的图片信息。例如：
+           - 如果图片显示数据图表或性能对比，请在摘要中提及这些数据点
+           - 如果图片包含代码或架构图，请尝试描述其主要功能或设计
+           - 如果图片展示了用户界面，请概述其功能或特点
+        7. 在摘要中，明确标注哪些信息来自图片分析（例如："根据图片显示的性能数据..."）
 
         以下是需要总结的帖子内容：
         
@@ -142,17 +162,42 @@ class TextSummarizer:
                 if attempt > 0:
                     logger.info(f"第 {attempt+1}/{self.max_retries} 次尝试调用API，批次 {batch_range}")
                 
-                # 创建聊天会话
-                chat_session = self.model.start_chat(history=[])
+                # 构建请求数据
+                data = {
+                    "model": self.model_name,
+                    "messages": [
+                        {"role": "system", "content": "你是一位专业的文本摘要工具，擅长总结技术内容。请使用中文回复，提供准确、简洁的摘要，确保总结在300-400字之间。"},
+                        {"role": "user", "content": prompt}
+                    ],
+                    **self.generation_config
+                }
                 
-                # 发送消息并获取响应
-                response = chat_session.send_message(prompt)
+                # 调用API
+                response = requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self.headers,
+                    json=data,
+                    timeout=60  # 设置60秒超时
+                )
                 
-                if response and response.text:
-                    logger.info(f"成功获得API响应，长度：{len(response.text)} 字符")
-                    return response.text
+                # 检查响应状态
+                response.raise_for_status()
+                response_data = response.json()
+                
+                if "choices" in response_data and len(response_data["choices"]) > 0:
+                    content = response_data["choices"][0]["message"]["content"]
+                    logger.info(f"成功获得API响应，长度：{len(content)} 字符")
+                    
+                    # 检查总结长度是否符合要求
+                    char_count = len(content.replace(" ", "").replace("\n", ""))
+                    logger.info(f"总结字符数（不含空格和换行）：{char_count}")
+                    
+                    if char_count < 250 or char_count > 500:
+                        logger.warning(f"总结长度不在理想范围内：{char_count}字符")
+                    
+                    return content
                 else:
-                    logger.warning(f"API返回了空响应，批次 {batch_range}")
+                    logger.warning(f"API返回了无效响应: {response_data}")
             except Exception as e:
                 logger.error(f"API调用出错 (尝试 {attempt+1}/{self.max_retries}): {e}")
                 logger.debug(traceback.format_exc())
@@ -168,7 +213,7 @@ class TextSummarizer:
     
     def summarize_posts(self) -> bool:
         """
-        读取Excel文件，使用Gemini API批量处理生成摘要，并保存结果
+        读取Excel文件，使用DeepSeek API批量处理生成摘要，并保存结果
         
         Returns:
             是否成功生成摘要
@@ -196,13 +241,20 @@ class TextSummarizer:
                 logger.error(f"输入数据缺少必要的列: {', '.join(missing_columns)}")
                 return False
             
+            # 检查是否存在图片列
+            has_image_column = 'post_images' in df.columns
+            if has_image_column:
+                logger.info("检测到图片列，将在摘要时包含图片信息")
+            else:
+                logger.info("未检测到图片列，将只处理文本内容")
+            
             # 将DataFrame转换为字典列表，便于处理
             records = df.to_dict('records')
             
             with open(self.output_file, "w", encoding="utf-8") as f:
                 # 先写入文件头部信息
-                f.write(f"# LLM相关新闻摘要 ({self.input_file.stem})\n\n")
-                f.write(f"基于 {len(records)} 条Reddit帖子生成\n\n")
+                f.write(f"# LLM相关新闻日报摘要 ({self.input_file.stem})\n\n")
+                f.write(f"基于 {len(records)} 条当天Reddit帖子生成\n\n")
                 
                 success_count = 0
                 i = 0
@@ -249,21 +301,18 @@ class TextSummarizer:
                 if success_count > 0:
                     return True
                 else:
-                    logger.error("未成功生成任何摘要")
+                    logger.error("未能成功生成任何摘要")
                     return False
             
-        except FileNotFoundError:
-            logger.error(f"找不到输入文件: {self.input_file}")
-            return False
         except Exception as e:
-            logger.error(f"摘要生成过程中出错: {e}")
+            logger.error(f"摘要生成失败: {e}")
             logger.error(traceback.format_exc())
             return False
 
 
 def run(input_file: Optional[str] = None, output_file: Optional[str] = None) -> bool:
     """
-    运行摘要生成的主函数
+    执行摘要生成的主函数
     
     Args:
         input_file: 可选的输入文件路径
@@ -275,12 +324,8 @@ def run(input_file: Optional[str] = None, output_file: Optional[str] = None) -> 
     try:
         summarizer = TextSummarizer(input_file, output_file)
         return summarizer.summarize_posts()
-    except ValueError as e:
-        logger.error(f"初始化摘要生成器时出错: {e}")
-        return False
     except Exception as e:
-        logger.error(f"运行摘要生成器时出错: {e}")
-        logger.error(traceback.format_exc())
+        logger.error(f"摘要生成模块出错: {e}")
         return False
 
 

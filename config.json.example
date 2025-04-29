@@ -1,8 +1,9 @@
 {
-  "reddit_url": "https://www.reddit.com/r/LocalLLaMA/",
-  "post_cleanup_hours": 48,
+  "reddit_url": "https://www.reddit.com/r/LocalLLaMA+MachineLearning+ChatGPT+LLMBenchmarks+Anthropic+GPT3+generative_ai",
+  "post_cleanup_hours": 24,
   "summary_batch_size": {
     "min": 5,
     "max": 10
-  }
+  },
+  "deepseek_api_key": "YOUR_DEEPSEEK_API_KEY_HERE"
 }

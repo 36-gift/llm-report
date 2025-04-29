@@ -35,7 +35,8 @@ def check_required_packages():
     logger.info("检查必要的Python库...")
     required_packages = [
         "requests", "beautifulsoup4", "selenium", "webdriver_manager", 
-        "pandas", "openpyxl", "google.generativeai", "docx", "tqdm", "dotenv"
+        "pandas", "openpyxl", "python-docx", "tqdm", "python-dotenv",
+        "pylatex", "spacy"
     ]
     
     all_installed = True
@@ -59,16 +60,16 @@ def check_api_key():
     logger.info("检查API密钥配置...")
     load_dotenv()
     
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
     if not api_key:
-        logger.error("❌ 未找到GEMINI_API_KEY环境变量")
+        logger.error("❌ 未找到DEEPSEEK_API_KEY环境变量")
         logger.error("   请设置环境变量或创建.env文件")
         return False
     else:
         if api_key == "your_api_key_here":
             logger.warning("⚠️ 检测到示例API密钥，请替换为真实的密钥")
             return False
-        logger.info("✅ 已找到GEMINI_API_KEY环境变量")
+        logger.info("✅ 已找到DEEPSEEK_API_KEY环境变量")
         return True
 
 # 检查必要的文件和目录
@@ -140,7 +141,7 @@ def check_chrome_browser():
 
 def main():
     logger.info("-" * 50)
-    logger.info("开始验证LLM新闻日报工具的环境设置")
+    logger.info("开始验证LLM新闻周报工具的环境设置")
     logger.info("-" * 50)
     
     checks = [

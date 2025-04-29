@@ -15,26 +15,34 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from llm_report_tool.scrapers.reddit_scraper import run as run_scraper
 from llm_report_tool.processors.data_cleaner import run as run_cleaner
 from llm_report_tool.processors.summarizer import run as run_summarizer
-from llm_report_tool.processors.report_generator import run as run_report_generator
+from llm_report_tool.processors.topic_extractor import run as run_topic_extractor
+from llm_report_tool.processors.latex_report_generator import run as run_latex_report_generator
 from llm_report_tool.utils.config import config, logger
 
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="LLM新闻报告生成工具 - 自动从Reddit爬取LLM相关新闻并生成摘要报告",
+        description="LLM新闻日报生成工具 - 自动从Reddit爬取当天LLM相关新闻并生成摘要报告",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
     # 常规选项
     parser.add_argument("-v", "--verbose", action="store_true", help="启用详细日志输出")
     parser.add_argument("--skip-scrape", action="store_true", help="跳过爬取阶段，使用已有数据")
-    parser.add_argument("--skip-clean", action="store_true", help="跳过数据清洗阶段")
+    parser.add_argument("--skip-clean", action="store_true", help="跳过数据质量分析阶段")
     parser.add_argument("--skip-summary", action="store_true", help="跳过摘要生成阶段")
+    parser.add_argument("--skip-topic", action="store_true", help="跳过主题分析阶段")
+    
+    # 输出格式选项 - 仅保留PDF选项
+    parser.add_argument("--no-pdf", action="store_true", help="不生成PDF格式报告")
     
     # 输入输出选项
     parser.add_argument("--reddit-url", type=str, help=f"Reddit版块URL，默认: {config.reddit_url}")
-    parser.add_argument("--hours", type=int, help=f"过滤多少小时前的新闻，默认: {config.post_cleanup_hours}小时")
+    parser.add_argument("--hours", type=int, help=f"过滤多少小时前的新闻，默认: {config.post_cleanup_hours}小时（当天）")
     parser.add_argument("--output-dir", type=str, help="指定输出目录")
+    
+    # 性能选项
+    parser.add_argument("--python-version", type=str, default="3.10", help="指定Python版本")
     
     return parser.parse_args()
 
@@ -66,7 +74,6 @@ def update_config_from_args(args):
         
         # 更新输出路径
         config.reports_dir = output_dir
-        config.report_file = output_dir / f"{config.current_date}-llm-news.docx"
         logger.debug(f"已设置输出目录为: {output_dir}")
 
 def run_workflow(args) -> bool:
@@ -84,12 +91,12 @@ def run_workflow(args) -> bool:
     
     # 2. 数据清洗阶段
     if not args.skip_clean:
-        logger.info("=== 开始执行数据清洗 ===")
+        logger.info("=== 开始执行数据质量分析 ===")
         if not run_cleaner():
-            logger.error("数据清洗阶段失败")
+            logger.error("数据质量分析阶段失败")
             return False
     else:
-        logger.info("已跳过数据清洗阶段")
+        logger.info("已跳过数据质量分析阶段")
     
     # 3. 摘要生成阶段
     if not args.skip_summary:
@@ -100,11 +107,22 @@ def run_workflow(args) -> bool:
     else:
         logger.info("已跳过摘要生成阶段")
     
-    # 4. 报告生成阶段
-    logger.info("=== 开始执行报告生成 ===")
-    if not run_report_generator():
-        logger.error("报告生成阶段失败")
-        return False
+    # 4. 主题抽取与分类阶段
+    if not args.skip_topic:
+        logger.info("=== 开始执行主题抽取与分类 ===")
+        if not run_topic_extractor():
+            logger.warning("主题抽取阶段失败，但将继续执行报告生成")
+    else:
+        logger.info("已跳过主题抽取阶段")
+    
+    # 5. 报告生成阶段 - 仅生成PDF格式
+    if not args.no_pdf:
+        logger.info("=== 开始执行PDF报告生成 ===")
+        if not run_latex_report_generator():
+            logger.error("PDF报告生成阶段失败")
+            success = False
+    else:
+        logger.info("已跳过PDF报告生成阶段")
     
     return success
 
@@ -116,22 +134,28 @@ def main():
     # 设置日志级别
     setup_logging(args.verbose)
     
+    # 检查Python版本
+    logger.info(f"使用Python版本: {args.python_version}")
+    
     # 更新配置
     update_config_from_args(args)
     
     # 检查API密钥
-    if not config.gemini_api_key and not args.skip_summary:
-        logger.error("错误：未设置GEMINI_API_KEY环境变量，摘要功能将无法使用。")
-        logger.error("请设置环境变量或使用--skip-summary选项跳过摘要生成。")
+    if not config.deepseek_api_key and not (args.skip_summary and args.skip_topic):
+        logger.error("错误：未设置DEEPSEEK_API_KEY环境变量，摘要和主题分析功能将无法使用。")
+        logger.error("请设置环境变量或使用--skip-summary和--skip-topic选项跳过相关功能。")
         return 1
     
     try:
         # 运行工作流
         if run_workflow(args):
-            logger.info(f"✅ LLM新闻日报生成完成，已保存至: {config.report_file}")
+            logger.info(f"✅ LLM新闻日报生成完成！")
+            if not args.no_pdf:
+                pdf_path = config.reports_dir / f"{config.current_date}-{config.report_prefix}.pdf"
+                logger.info(f"PDF报告已保存至: {pdf_path}")
             return 0
         else:
-            logger.error("❌ LLM新闻日报生成失败")
+            logger.error("❌ LLM新闻日报生成部分失败")
             return 1
     except KeyboardInterrupt:
         logger.info("用户中断操作")

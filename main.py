@@ -26,4 +26,4 @@ if __name__ == "__main__":
     run_script(data_cleaner_path)
     run_script(summarizer_path)
 
-    print("日报生成完成！")
+    print("周报生成完成！")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-LLM新闻报告生成工具的启动文件
+LLM新闻周报生成工具启动脚本
 """
 import sys
 from llm_report_tool.main import main

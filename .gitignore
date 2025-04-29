@@ -1,9 +1,10 @@
-# Python
+# Python相关
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -15,47 +16,51 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# Environment variables and secrets
+# 环境变量和配置文件
 .env
-.venv
-env/
 venv/
 ENV/
-env.bak/
-venv.bak/
-
-# Personal configuration
+env/
+.venv
 config.json
 
-# Data files
-data/*.xlsx
-data/*.csv
-data/*.json
-data/*.txt
-
-# Generated reports
-llm_report_tool/reports/*.docx
-reports/*.docx
-*.docx
-
-# Logs
-*.log
-logs/
-
-# IDE specific files
+# 编辑器和IDE相关
 .idea/
 .vscode/
 *.swp
 *.swo
-*.sublime-workspace
-*.sublime-project
+*~
 
-# Testing
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 数据文件和输出目录
+data/raw/
+data/processed/
+data/posts/
+llm_report_tool/reports/
+*.docx
+*.pdf
+*.tex
+*.aux
+*.log
+*.out
+
+# WebDriver相关
+drivers/*.exe
+drivers/*.zip
+drivers/chromedriver
+*.crx
+node_modules/
+chromedriver
+undetected_chromedriver.zip
+
+# 测试相关
 .coverage
 htmlcov/
 .pytest_cache/
@@ -63,8 +68,6 @@ nosetests.xml
 coverage.xml
 *.cover
 
-# OS specific
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Desktop.ini
+# 不忽略示例配置文件
+!.env.example
+!config.json.example 
