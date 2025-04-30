@@ -40,15 +40,22 @@ def check_required_packages():
     ]
     
     all_installed = True
+    # Map installation names to actual import names where they differ
+    import_map = {
+        "beautifulsoup4": "bs4",
+        "python-docx": "docx",
+        "python-dotenv": "dotenv"
+    }
     for package in required_packages:
+        import_name = import_map.get(package, package) # Use mapped name or original if not mapped
         try:
-            # 处理子模块的情况
-            if "." in package:
-                main_package = package.split(".")[0]
+            # 处理子模块的情况 (use import_name for check)
+            if "." in import_name:
+                main_package = import_name.split(".")[0]
                 importlib.import_module(main_package)
             else:
-                importlib.import_module(package)
-            logger.info(f"✅ {package} 已正确安装")
+                importlib.import_module(import_name)
+            logger.info(f"✅ {package} 已正确安装") # Log the original package name
         except ImportError:
             logger.error(f"❌ {package} 未安装或无法导入")
             all_installed = False
@@ -84,7 +91,7 @@ def check_project_structure():
         base_dir / "llm_report_tool" / "processors" / "data_cleaner.py",
         base_dir / "llm_report_tool" / "processors" / "summarizer.py",
         base_dir / "requirements.txt",
-        base_dir / "run.py",
+        base_dir / "main.py",
     ]
     
     all_exists = True
@@ -141,7 +148,7 @@ def check_chrome_browser():
 
 def main():
     logger.info("-" * 50)
-    logger.info("开始验证LLM新闻周报工具的环境设置")
+    logger.info("开始验证LLM新闻日报工具的环境设置")
     logger.info("-" * 50)
     
     checks = [
@@ -165,7 +172,7 @@ def main():
     logger.info("-" * 50)
     if all_passed:
         logger.info("🎉 恭喜！所有必要组件已正确安装和配置")
-        logger.info("你可以通过运行 'python run.py' 来开始使用该工具")
+        logger.info("你可以通过运行 'python main.py' 来开始使用该工具")
     else:
         logger.error("⚠️ 存在一些问题需要解决")
         logger.error("请查看上面的错误信息并解决相关问题后再次运行此脚本")

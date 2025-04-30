@@ -79,16 +79,15 @@ class TextSummarizer:
         Returns:
             用于生成摘要的提示词
         """
-            title = post.get("post_title", "无标题")
-            content = post.get("post_content", "无内容").strip()
-            
-        # 限制帖子的长度，避免超过token限制
-        max_content_length = 1500 # 单个帖子可以适当增加长度
-            if len(content) > max_content_length:
-                content = content[:max_content_length] + "...(内容已截断)"
-                
-        post_details = f"标题：{title}\n内容：{content}"
+        title = post.get("post_title", "无标题")
+        content = post.get("post_content", "无内容").strip()
         
+        # 限制帖子的长度，避免超过token限制
+        max_content_length = 1500  # 单个帖子可以适当增加长度
+        if len(content) > max_content_length:
+            content = content[:max_content_length] + "...(内容已截断)"
+            
+        post_details = f"标题：{title}\n内容：{content}"
         prompt_template = """
         我将提供一些来自Reddit的LLM（大语言模型）相关帖子的内容，请对这些帖子进行总结。
 

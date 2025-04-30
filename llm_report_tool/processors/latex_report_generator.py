@@ -12,6 +12,7 @@ from pylatex import Document, Section, Subsection, Command, Package, Figure, NoE
 from pylatex.utils import bold, italic
 from ..utils.config import config, logger
 import subprocess
+import re
 
 class LatexReportGenerator:
     """LaTeX PDF报告生成类，使用pylatex生成PDF格式的报告"""
@@ -50,6 +51,7 @@ class LatexReportGenerator:
         # 修改数据存储
         self.classified_summaries: List[Dict] = []
         self.concept_hotspots: Dict[str, str] = {} # Add storage for concept hotspots
+        self.subsection_counter = 0 # Initialize counter for unique labels
     
     def _load_data(self) -> bool:
         """
@@ -87,7 +89,7 @@ class LatexReportGenerator:
     
     def _escape_latex(self, text: str) -> str:
         """
-        转义LaTeX特殊字符
+        转义LaTeX特殊字符 (减少对下划线的转义，除非明确需要)
         
         Args:
             text: 输入文本
@@ -95,25 +97,38 @@ class LatexReportGenerator:
         Returns:
             转义后的文本
         """
-        # 替换LaTeX特殊字符
-        replacements = {
-            '&': '\\&',
-            '%': '\\%',
-            '$': '\\$',
-            '#': '\\#',
-            '_': '\\_',
-            '{': '\\{',
-            '}': '\\}',
-            '~': '\\textasciitilde{}',
-            '^': '\\textasciicircum{}',
-            '\\': '\\textbackslash{}',
-        }
+        escaped_text = text
+        # Escape backslash FIRST
+        escaped_text = escaped_text.replace('\\', r'\textbackslash{}') 
+        # Escape other LaTeX special chars (excluding underscore, handled by package)
+        escaped_text = escaped_text.replace('&', r'\&')
+        escaped_text = escaped_text.replace('%', r'\%') # Escape % in normal text
+        escaped_text = escaped_text.replace('$', r'\$')
+        escaped_text = escaped_text.replace('#', r'\#') 
+        escaped_text = escaped_text.replace('{', r'\{')
+        escaped_text = escaped_text.replace('}', r'\}')
+        escaped_text = escaped_text.replace('~', r'\textasciitilde{}')
+        escaped_text = escaped_text.replace('^', r'\textasciicircum{}')
+        escaped_text = escaped_text.replace('<', r'\textless{}') 
+        escaped_text = escaped_text.replace('>', r'\textgreater{}')
+        # REMOVED specific underscore cases - rely on underscore package
+        # escaped_text = escaped_text.replace("Min_P", "Min\\_P")
+        # escaped_text = escaped_text.replace("Top_P", "Top\\_P")
+        # escaped_text = escaped_text.replace("Top_K", "Top\\_K")
+        # escaped_text = escaped_text.replace("base_url", "base\\_url")
+        # escaped_text = escaped_text.replace("api_key", "api\\_key")
         
-        for char, replacement in replacements.items():
-            text = text.replace(char, replacement)
-            
-        return text
+        # Filter out problematic emoji
+        escaped_text = escaped_text.replace('😲', '') # U+1F632
+        escaped_text = escaped_text.replace('≈', '') # U+2248 Almost Equal To
+
+        return escaped_text
     
+    def _get_unique_label(self) -> str:
+        """生成一个唯一的小节标签"""
+        self.subsection_counter += 1
+        return f"subsec:{self.subsection_counter}"
+
     def _create_document(self) -> Document:
         """
         创建LaTeX文档
@@ -121,36 +136,34 @@ class LatexReportGenerator:
         Returns:
             PyLaTeX文档对象
         """
-        # 创建文档
-        doc = Document(page_numbers=True)
+        # 创建文档 - 使用 ctexart 以获得更好的中文支持
+        doc = Document(page_numbers=True, documentclass='ctexart') 
         
-        # 添加包
-        doc.packages.append(Package('ctex'))  # 支持中文
+        # 添加包 - 不再需要手动添加 xeCJK 或设置字体，ctexart 会处理
+        # doc.packages.append(Package('xeCJK')) 
+        # doc.preamble.append(NoEscape(r'\setCJKmainfont{SimSun}')) 
+        # doc.preamble.append(NoEscape(r'\setCJKsansfont{SimSun}')) 
+        # doc.preamble.append(NoEscape(r'\setCJKmonofont{SimSun}')) 
+        
         doc.packages.append(Package('geometry', options=['margin=1in']))
-        doc.packages.append(Package('hyperref', options=['colorlinks=true', 'linkcolor=blue']))
+        # Use hyperref options for better URL handling and appearance
+        doc.packages.append(Package('hyperref', options=['colorlinks=true', 'linkcolor=blue', 'urlcolor=blue', 'breaklinks=true']))
         doc.packages.append(Package('graphicx'))
-        doc.packages.append(Package('xcolor'))
+        # doc.packages.append(Package('xcolor')) # xcolor is loaded by hyperref with colorlinks=true
         doc.packages.append(Package('booktabs'))
+        doc.packages.append(Package('underscore')) # Add underscore package for better underscore handling in text
+        doc.packages.append(Package('url')) # For the \\url command
+        doc.packages.append(Package('amsmath')) # For \text{} command
         
-        # 设置文档信息
-        doc.preamble.append(Command('title', self.title))
-        doc.preamble.append(Command('author', self.author))
-        doc.preamble.append(Command('date', self.date))
+        # 设置文档信息 (使用字体放大命令)
+        doc.preamble.append(Command('title', NoEscape(r'\Huge ' + self.title))) # Enlarge title
+        doc.preamble.append(Command('author', NoEscape(r'\Large ' + self.author))) # Enlarge author
+        doc.preamble.append(Command('date', NoEscape(r'\large ' + self.date))) # Enlarge date
         
         # 生成标题页
-        doc.append(NoEscape('\\maketitle'))
+        doc.append(NoEscape(r'\maketitle'))
         
         return doc
-    
-    def _add_toc(self, doc: Document) -> None:
-        """
-        添加目录
-        
-        Args:
-            doc: PyLaTeX文档对象
-        """
-        doc.append(NoEscape('\\tableofcontents'))
-        doc.append(NoEscape('\\newpage'))
     
     def _add_concept_hotspots_section(self, doc: Document) -> None:
         """
@@ -169,6 +182,8 @@ class LatexReportGenerator:
             for i, (concept, summary) in enumerate(self.concept_hotspots.items()):
                 # Add concept as subsection title
                 with doc.create(Subsection(f"核心概念: {self._escape_latex(concept)}")):
+                    label = self._get_unique_label() # Get unique label
+                    doc.append(Command('label', NoEscape(label))) # Add label command
                     escaped_summary = self._escape_latex(summary)
                     # Replace newlines with LaTeX newlines
                     latex_summary = escaped_summary.replace('\n', NoEscape(' \\\\ '))
@@ -212,7 +227,13 @@ class LatexReportGenerator:
                     summaries_in_category = summaries_by_category[category]
                     # 创建分类小节
                     with doc.create(Subsection(self._escape_latex(category))):
+                        label = self._get_unique_label() # Get unique label
+                        doc.append(Command('label', NoEscape(label))) # Add label command
                         for i, summary_data in enumerate(summaries_in_category):
+                            # Add vertical space before the second post onwards using \medskip
+                            if i > 0:
+                                doc.append(NoEscape("\medskip")) # Use \medskip for spacing
+                                
                             title = summary_data.get("title", "无标题")
                             summary_content = summary_data.get("summary", "无摘要")
                             url = summary_data.get("url", "")
@@ -229,21 +250,34 @@ class LatexReportGenerator:
                             doc.append(NoEscape(latex_summary))
                             doc.append(NoEscape("\\\\[0.5ex]")) # 摘要后稍微隔开
                             
-                            # 添加原文链接
+                            # 添加原文链接 using \\url{}
                             if url and url != 'URL_Not_Found':
                                 doc.append(italic("原文链接: "))
-                                doc.append(Command('href', [url, self._escape_latex(url)]))
+                                # Use \url command, but escape % beforehand as \url sometimes struggles with it
+                                safe_url = url.replace('%', r'\\%')
+                                doc.append(NoEscape(r'\url{' + safe_url + r'}')) 
+                            # else: 
+                            #     # Ensure paragraph break even if no URL
+                            #     doc.append(NoEscape("\\par")) 
                             
-                            # 每个帖子后加一点垂直空间
-                            doc.append(NoEscape("\\vspace{1em}")) 
+                            # Always end the item with a paragraph break before the next potential \bigskip
+                            doc.append(NoEscape("\par"))
+                            
+                            # 每个帖子后加一点垂直空间 - REMOVED
+                            # doc.append(NoEscape("\\vspace{1.5em}")) # Removed - rely on \par separation
 
             # 处理未在预定义顺序中的其他分类 (如果有)
             for category, summaries_in_category in summaries_by_category.items():
                  if category not in category_order:
                       logger.warning(f"发现未预定义顺序的分类: {category}，将添加到报告末尾")
                       with doc.create(Subsection(self._escape_latex(category))):
-                           # ... (此处省略重复的写入逻辑, 与上面类似) ...
+                           label = self._get_unique_label() # Get unique label
+                           doc.append(Command('label', NoEscape(label))) # Add label command
                            for i, summary_data in enumerate(summaries_in_category):
+                                # Add vertical space before the second post onwards using \medskip
+                                if i > 0:
+                                    doc.append(NoEscape("\medskip")) # Use \medskip for spacing
+                                    
                                 title = summary_data.get("title", "无标题")
                                 summary_content = summary_data.get("summary", "无摘要")
                                 url = summary_data.get("url", "")
@@ -255,8 +289,18 @@ class LatexReportGenerator:
                                 doc.append(NoEscape("\\\\[0.5ex]"))
                                 if url and url != 'URL_Not_Found':
                                      doc.append(italic("原文链接: "))
-                                     doc.append(Command('href', [url, self._escape_latex(url)]))
-                                doc.append(NoEscape("\\vspace{1em}"))
+                                     # Use \url command, but escape % beforehand as \url sometimes struggles with it
+                                     safe_url = url.replace('%', r'\\%')
+                                     doc.append(NoEscape(r'\url{' + safe_url + r'}'))
+                                # else:
+                                #     # Ensure paragraph break even if no URL
+                                #     doc.append(NoEscape("\\par"))
+                                
+                                # Always end the item with a paragraph break before the next potential \bigskip
+                                doc.append(NoEscape("\par"))
+                                
+                                # 每个帖子后加一点垂直空间 - REMOVED
+                                # doc.append(NoEscape("\\vspace{1.5em}")) # Removed - rely on \par separation
 
     def _add_footer(self, doc: Document) -> None:
         """
@@ -282,8 +326,11 @@ class LatexReportGenerator:
             return False
         
         # 创建文档结构
-        doc = self._create_document()
-        self._add_toc(doc)
+        doc = self._create_document() # This includes \maketitle
+        doc.append(NoEscape(r'\newpage')) # Start content on a new page after the title page
+        # doc.append(NoEscape(r'\newpage')) # Removed - No longer needed before ToC
+        # self._add_toc(doc) # REMOVED - TOC is disabled
+        # doc.append(NoEscape(r'\newpage')) # Removed from here, moved before ToC
         
         # Add Concept Hotspots section first
         self._add_concept_hotspots_section(doc)
@@ -297,7 +344,8 @@ class LatexReportGenerator:
         try:
             # 使用xelatex以更好支持中文
             logger.info("开始编译LaTeX文件...")
-            doc.generate_pdf(self.output_file.with_suffix(''), clean_tex=True, compiler='xelatex')
+            # Keep auxiliary files (like .log, .toc) for debugging by setting clean_tex=False
+            doc.generate_pdf(self.output_file.with_suffix(''), clean_tex=False, compiler='xelatex') 
             logger.info(f"✅ PDF报告已成功生成: {self.output_file}")
             return True
         except subprocess.CalledProcessError as e:

@@ -103,19 +103,6 @@ class RedditScraper:
         Returns:
             包含当天发布的所有帖子URL的列表
         """
-        # 首先尝试使用API直接获取帖子，这种方式更可靠
-        logger.info(f"尝试使用API直接获取{self.subreddit_url}的帖子...")
-        posts_data = self._get_posts_by_requests()
-        if posts_data:
-            recent_urls = [post['url'] for post in posts_data if 'url' in post]
-            logger.info(f"通过API获取了 {len(recent_urls)} 个当天帖子")
-            if recent_urls:  # 只要有获取到帖子就返回，不设置最低数量限制
-                return recent_urls
-            else:
-                logger.warning(f"通过API未获取到当天帖子，将尝试使用浏览器爬取")
-        else:
-            logger.warning("API请求未返回有效数据，将尝试使用浏览器爬取")
-            
         # 如果API获取失败或获取的帖子不足，则使用Selenium
         post_urls = []
         post_dates = {}  # 存储帖子URL及其对应的日期
@@ -213,20 +200,36 @@ class RedditScraper:
                             # 提取帖子日期信息
                             time_tag = article.find('faceplate-timeago')
                             if isinstance(time_tag, Tag) and time_tag.has_attr('ts'):
+                                ts_value = time_tag.get('ts', '[ts attribute missing]')
+                                logger.debug(f"Found time_tag for {full_url}. Raw ts attribute: {ts_value}")
+                            else:
+                                logger.debug(f"No valid time_tag with 'ts' found for {full_url}. time_tag: {time_tag}")
+                            if isinstance(time_tag, Tag) and time_tag.has_attr('ts'):
                                 try:
-                                    ts = time_tag['ts']
-                                    if isinstance(ts, list):
-                                        ts = ts[0] if ts else ""
-                                    if ts and isinstance(ts, str) and ts.isdigit():
-                                        post_date = datetime.fromtimestamp(int(ts)).date()
-                                        post_dates[full_url] = post_date
-                                        
-                                        # 检查是否为当天发布的帖子
-                                        if self.day_ago <= post_date <= self.today:
+                                    ts_string = time_tag['ts']
+                                    if isinstance(ts_string, list):
+                                        ts_string = ts_string[0] if ts_string else ""
+                                    
+                                    if ts_string:
+                                        # Parse the ISO 8601 timestamp string
+                                        # Python < 3.11 doesn't handle 'Z' or +00:00 directly sometimes
+                                        # We know it ends with +0000, so we can parse manually if needed or use aware datetime
+                                        # For simplicity, assuming the format is consistent
+                                        post_datetime_utc = datetime.fromisoformat(ts_string.replace("+0000", "+00:00"))
+                                        post_date_utc = post_datetime_utc.date()
+                                        post_dates[full_url] = post_date_utc # Store UTC date
+
+                                        # Get current UTC date
+                                        today_utc = datetime.utcnow().date()
+                                        day_ago_utc = today_utc - timedelta(days=1)
+
+                                        # Compare dates in UTC
+                                        if day_ago_utc <= post_date_utc <= today_utc:
                                             if full_url not in recent_urls:
                                                 recent_urls.append(full_url)
+                                                logger.debug(f"Added post from {post_date_utc}: {full_url}") # Add log when adding
                                 except (ValueError, TypeError) as e:
-                                    logger.warning(f"解析时间戳出错: {e}")
+                                    logger.warning(f"解析时间戳字符串 '{ts_string}' 出错: {e}")
                 
                 # 检查是否有新帖子被添加
                 if len(post_urls) == last_posts_count:
@@ -374,12 +377,12 @@ class RedditScraper:
         使用 Reddit JSON API 后备提取帖子信息 (仅标题、内容)。
         增加了重试逻辑以处理包括SSLError在内的临时网络问题。
         """
-            # 构造 JSON API 地址
-            api_url = url.rstrip('/') + '.json'
-            headers = {'User-Agent': random.choice(self.user_agents), 'Accept': 'application/json'}
+        # 构造 JSON API 地址
+        api_url = url.rstrip('/') + '.json'
+        headers = {'User-Agent': random.choice(self.user_agents), 'Accept': 'application/json'}
         response = requests.get(api_url, headers=headers, timeout=20)
         response.raise_for_status() # 如果状态码不是 2xx，则抛出异常
-            data = response.json()
+        data = response.json()
 
         try:
             # Reddit JSON 返回列表，首项包含帖子详情
@@ -410,16 +413,14 @@ class RedditScraper:
         json_info = None
         html_info = None
         final_post_data = {}
-
         # 尝试通过 JSON API 获取信息
         try:
-        json_info = self._extract_post_info_via_json(url)
+            json_info = self._extract_post_info_via_json(url)
         except Exception as e:
             logger.warning(f"调用 _extract_post_info_via_json 失败 ({url}): {e}", exc_info=True)
-
         # 尝试通过 HTML 获取信息
         try:
-        with requests.Session() as session:
+            with requests.Session() as session:
                 response = session.get(url, headers=headers, timeout=20) # 增加 HTML 请求超时
                 response.raise_for_status() # 检查 HTML 请求是否成功
                 html_info = self.extract_post_info(response.text)
@@ -427,9 +428,8 @@ class RedditScraper:
             logger.warning(f"HTML 请求失败 ({url}): {e}")
         except Exception as e:
             logger.warning(f"调用 extract_post_info 失败 ({url}): {e}", exc_info=True)
-
         # 合并信息：优先 JSON，HTML 补充
-                if json_info:
+        if json_info:
             final_post_data.update(json_info)
         
         if html_info:
@@ -549,7 +549,7 @@ class RedditScraper:
                 if post_data:
                     # 直接为帖子数据添加运行日期
                     post_data['post_date'] = self.today.isoformat()
-                        all_posts_data.append(post_data)
+                    all_posts_data.append(post_data)
                 else:
                     logger.warning(f"无法提取帖子信息: {url}")
                     

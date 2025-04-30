@@ -112,4 +112,4 @@ coverage.xml
 
 # 不忽略示例配置文件
 !.env.example
-!config.json.example 
+!config.json.example

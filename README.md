@@ -1,9 +1,11 @@
 # <center>📰 LLM 新闻日报自动生成工具 🤖</center>
 
+<center>
 <!-- Placeholder Badges -->
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white" alt="Python Version">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
   <!-- Add other relevant badges here, e.g., build status, coverage -->
+</center>
 
 ---
 
@@ -45,14 +47,14 @@ llm_report/
 ├── README.md             # 项目说明文件 (就是您正在看的这个)
 ├── requirements.txt      # Python 依赖列表
 ├── tests/                # (可选) 单元测试和集成测试
-└── verify_setup.py       # (可能) 用于检查环境设置的脚本
+└── verify_setup.py       # 用于检查环境设置的脚本
 ```
 
 ---
 
 ## ✨ 主要功能
 
-- **🤖 自动抓取**: 从指定的 Reddit URL 抓取设定时间范围内（默认 24 小时）的帖子。
+- **🤖 自动抓取**: 使用 Selenium 和 Chrome/Chromedriver 从指定的 Reddit URL 抓取设定时间范围内（默认 24 小时）的帖子。
 - **🧹 数据清洗**:
   - 移除明显空白或无效的帖子内容。
   - (可选) 使用 LLM API (**DeepSeek**) 对帖子内容进行质量评分，过滤低质量或不相关的帖子。
@@ -70,7 +72,7 @@ llm_report/
 ## 🚀 技术栈
 
 - **核心语言**: Python 3.10+
-- **数据抓取**: Selenium, Requests, BeautifulSoup4
+- **数据抓取**: Selenium, BeautifulSoup4, webdriver-manager
 - **数据处理**: Pandas
 - **LLM API**: DeepSeek API (用于内容分析、摘要、分类、概念提取)
 - **报告生成**: PyLaTeX, XeLaTeX (_需要本地安装 TeX 发行版_)
@@ -130,14 +132,16 @@ _注意: 这会自动安装 `webdriver-manager`，它会尝试下载合适的 Ch
 
 为了生成 PDF 报告，您需要在本地安装一个 **TeX 发行版**。
 
-- **Windows**: 推荐安装 [**MiKTeX**](https://miktex.org/download)。
-  - 安装后，请务必打开 **MiKTeX Console** -> **Packages**，搜索并安装 `xeCJK` 宏包（这是中文支持的关键）。
-- **macOS**: 推荐安装 [**MacTeX**](https://www.tug.org/mactex/downloading.html) (包含了 TeX Live 和所需工具)。
+- **Windows**: 推荐安装 [**TeX Live**](https://www.tug.org/texlive/acquire-netinstall.html)。
+  - 下载并运行网络安装程序 `install-tl-windows.exe`。
+  - 在安装过程中，推荐选择 **`scheme-full`** 以安装完整的宏包集合，避免后续缺少依赖的问题（需要较多磁盘空间和下载时间）。
+  - **确保**安装程序将 TeX Live 的 `bin` 目录添加到了系统的 `PATH` 环境变量中。
+- **macOS**: 推荐安装 [**MacTeX**](https://www.tug.org/mactex/downloading.html) (基于 TeX Live，包含了常用工具和宏包)。
 - **Linux**: 可以通过包管理器安装 **TeX Live**。
-  - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install texlive-xetex texlive-lang-chinese` (或者 `texlive-full` 如果您不介意大小)
-  - Fedora: `sudo dnf install texlive-scheme-basic texlive-xetex texlive-collection-langchinese` (或者 `texlive-scheme-full`)
-  - _请根据您的发行版调整包名。_
-- **验证**: 安装完成后，尝试在终端运行 `xelatex --version`，如果成功显示版本信息，则表示安装基本成功。
+  - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install texlive-full` (或者更小的集合如 `texlive-xetex texlive-lang-chinese texlive-latex-recommended texlive-latex-extra`)
+  - Fedora: `sudo dnf install texlive-scheme-full` (或者根据需要安装更小的 `texlive-scheme-basic`, `texlive-xetex`, `texlive-collection-langchinese` 等)
+  - _请根据您的发行版调整包名。确保安装了 `xelatex` 命令和 `xeCJK` 等中文支持包。_
+- **验证**: 安装完成后，**打开新终端**并运行 `xelatex --version`，如果成功显示版本信息，则表示安装基本成功。
 
 ---
 
@@ -231,10 +235,10 @@ python main.py [选项]
 
 ## 🙏 致谢
 
-> - 感谢 **Reddit** 提供了丰富的信息来源。
-> - 感谢 **DeepSeek** 提供了强大的 LLM API 支持。
-> - 感谢 **Selenium**, **Requests**, **BeautifulSoup4**, **Pandas**, **PyLaTeX** 等开源库的开发者。
-> - 感谢 **MiKTeX/TeX Live** 社区提供了优秀的 TeX 发行版。
+> - 感谢 **Reddit** <img src="https://img.shields.io/badge/Reddit-%23FF4500.svg?&style=flat-square&logo=reddit&logoColor=white" alt="Reddit Badge"/> 提供了丰富的信息来源。
+> - 感谢 **DeepSeek** <img src="https://img.shields.io/badge/AI-DeepSeek-blueviolet?style=flat-square" alt="DeepSeek Badge"/> 提供了强大的 LLM API 支持。
+> - 感谢 **Selenium** <img src="https://img.shields.io/badge/Selenium-%43B02A.svg?&style=flat-square&logo=selenium&logoColor=white" alt="Selenium Badge"/>, **BeautifulSoup4** <img src="https://img.shields.io/badge/BeautifulSoup4-%23C41515.svg?&style=flat-square&logo=python&logoColor=white" alt="BeautifulSoup4 Badge"/>, **Pandas** <img src="https://img.shields.io/badge/Pandas-%23150458.svg?&style=flat-square&logo=pandas&logoColor=white" alt="Pandas Badge"/>, **PyLaTeX** <img src="https://img.shields.io/badge/PyLaTeX-%233776AB.svg?&style=flat-square&logo=python&logoColor=white" alt="PyLaTeX Badge"/> 等开源库的开发者。
+> - 感谢 **TeX Live** <img src="https://img.shields.io/badge/TeX-%23008080.svg?&style=flat-square&logo=tex&logoColor=white" alt="TeX Badge"/> 社区提供了优秀的 TeX 发行版。
 
 ---
 
