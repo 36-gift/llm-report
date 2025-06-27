@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "llm-report"
-version = "0.1.0"
-description = "Automated LLM news report generation tool that scrapes Reddit, processes content with AI, and generates PDF reports"
+version = "1.0.0-macos"
+description = "Automated LLM news report generation tool optimized for macOS - scrapes Reddit, processes content with DeepSeek AI, and generates PDF reports"
 authors = ["Icarus603 <Icarus603@users.noreply.github.com>"]
 readme = "README.md"
 packages = [{include = "llm_report_tool"}]
