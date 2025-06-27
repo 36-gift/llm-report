@@ -30,7 +30,7 @@ var/
 
 # IDE and editor files
 .idea/
-# .vscode/ - keeping VS Code settings for consistent development environment
+.vscode/
 *.swp
 *.swo
 *~
