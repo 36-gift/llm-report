@@ -1,9 +1,19 @@
 {
+  "_comment": "OPTIONAL: This file provides advanced configuration options.",
+  "_comment2": "Most users only need to set DEEPSEEK_API_KEY in .env file.",
+  "_comment3": "Copy this file to config.json if you need custom settings.",
+
   "reddit_url": "https://www.reddit.com/r/LocalLLaMA+MachineLearning+ChatGPT+LLMBenchmarks+Anthropic+GPT3+generative_ai",
   "post_cleanup_hours": 24,
   "summary_batch_size": {
     "min": 5,
     "max": 10
   },
-  "deepseek_api_key": "YOUR_DEEPSEEK_API_KEY_HERE"
+  "report_title": "LLM技术日报",
+  "report_prefix": "llm-news-daily",
+  "temperature": {
+    "summarizer": 0.6,
+    "topic_extractor": 0.8,
+    "data_cleaner": 0.8
+  }
 }

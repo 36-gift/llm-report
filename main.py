@@ -1,5 +1,6 @@
-import sys
+#!/usr/bin/env python
 import os
+import sys
 from pathlib import Path
 
 # Ensure the package directory is in the Python path

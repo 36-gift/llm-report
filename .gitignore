@@ -1,4 +1,4 @@
-# Python相关
+# Python related files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -30,7 +30,7 @@ var/
 
 # IDE and editor files
 .idea/
-.vscode/
+# .vscode/ - keeping VS Code settings for consistent development environment
 *.swp
 *.swo
 *~
@@ -48,7 +48,16 @@ data/*.json
 # data/raw/
 # data/processed/
 
-# Report generation artifacts
+# Report generation artifacts (updated path)
+reports/*.tex
+reports/*.pdf
+reports/*.log
+reports/*.aux
+reports/*.out
+reports/*.toc
+reports/*.synctex.gz
+
+# Legacy report path (can be removed after migration)
 llm_report_tool/reports/*.tex
 llm_report_tool/reports/*.pdf
 llm_report_tool/reports/*.log
@@ -70,9 +79,15 @@ undetected_chromedriver.zip
 .coverage
 htmlcov/
 .pytest_cache/
+.mypy_cache/
 nosetests.xml
 coverage.xml
 *.cover
+
+# Security scan reports
+bandit-report.json
+.secrets.baseline.backup
+security-audit.json
 
 # Config files (ignore actual, keep example)
 config.json
@@ -81,35 +96,16 @@ config.json
 !config.json.example
 !.env.example
 
-# 数据文件和输出目录
-data/raw/
-data/processed/
-data/posts/
-llm_report_tool/reports/
-*.docx
-*.pdf
-*.tex
-*.aux
+# Claude Code user configuration
+.claude/
+CLAUDE.md
+
+# Additional development files
+.python-version
+.pre-commit-config.yaml
+# Note: .secrets.baseline is kept (security baseline)
+# Note: run_tests.py removed (redundant with Poetry)
+
+# Logs
+logs/
 *.log
-*.out
-
-# WebDriver相关
-drivers/*.exe
-drivers/*.zip
-drivers/chromedriver
-*.crx
-node_modules/
-chromedriver
-undetected_chromedriver.zip
-
-# 测试相关
-.coverage
-htmlcov/
-.pytest_cache/
-nosetests.xml
-coverage.xml
-*.cover
-
-# 不忽略示例配置文件
-!.env.example
-!config.json.example
