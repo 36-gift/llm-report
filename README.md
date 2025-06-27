@@ -281,5 +281,5 @@ poetry run python -c "import tempfile, shutil; shutil.rmtree(tempfile.gettempdir
 
 <div align="center">
   <p><strong>专为 macOS 用户打造的 LLM 新闻自动化工具</strong></p>
-  <p>🍎 针对 Apple Silicon 优化 | 🚀 一键式自动化 | �� 专业级报告</p>
+  <p>🍎 针对 Apple Silicon 优化 | 🚀 一键式自动化 | 📊 结构化报告</p>
 </div>
