@@ -48,7 +48,7 @@ data/*.json
 # data/raw/
 # data/processed/
 
-# Report generation artifacts
+# Report generation artifacts (both old and new paths)
 llm_report_tool/reports/*.tex
 llm_report_tool/reports/*.pdf
 llm_report_tool/reports/*.log
@@ -56,6 +56,15 @@ llm_report_tool/reports/*.aux
 llm_report_tool/reports/*.out
 llm_report_tool/reports/*.toc
 llm_report_tool/reports/*.synctex.gz
+
+# New report path (updated structure)
+reports/*.tex
+reports/*.pdf
+reports/*.log
+reports/*.aux
+reports/*.out
+reports/*.toc
+reports/*.synctex.gz
 
 # WebDriver related
 drivers/
@@ -81,35 +90,13 @@ config.json
 !config.json.example
 !.env.example
 
-# 数据文件和输出目录
-data/raw/
-data/processed/
-data/posts/
-llm_report_tool/reports/
-*.docx
-*.pdf
-*.tex
-*.aux
+# Python version management
+.python-version
+
+# Claude AI development files
+.claude/
+CLAUDE.md
+
+# Development logs
+logs/
 *.log
-*.out
-
-# WebDriver相关
-drivers/*.exe
-drivers/*.zip
-drivers/chromedriver
-*.crx
-node_modules/
-chromedriver
-undetected_chromedriver.zip
-
-# 测试相关
-.coverage
-htmlcov/
-.pytest_cache/
-nosetests.xml
-coverage.xml
-*.cover
-
-# 不忽略示例配置文件
-!.env.example
-!config.json.example

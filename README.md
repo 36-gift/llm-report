@@ -1,245 +1,271 @@
-# <center>📰 LLM 新闻日报自动生成工具 🤖</center>
+# LLM 新闻日报自动生成工具 (Windows 版)
 
-<center>
-<!-- Placeholder Badges -->
+<div align="center">
+  <img src="https://img.shields.io/badge/Windows-10%2F11%20支持-blue?logo=windows&logoColor=white" alt="Windows Support">
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white" alt="Python Version">
+  <img src="https://img.shields.io/badge/DeepSeek-AI%20摘要-orange" alt="DeepSeek AI">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
-  <!-- Add other relevant badges here, e.g., build status, coverage -->
-</center>
+</div>
 
----
+## 📖 项目概述
 
-## 📖 概述
+LLM 新闻日报自动生成工具是一个专为 **Windows** 用户设计的自动化工具，能够从 Reddit 的 LLM 相关版块自动抓取最新讨论，使用 DeepSeek AI 进行内容分析和摘要生成，最终输出结构化的中文 PDF 日报。
 
-本工具旨在自动化地从 Reddit 的特定版块（默认为 `r/LocalLLaMA`）抓取最新的关于大型语言模型（LLM）的讨论帖子，对内容进行清洗、摘要生成、智能分类，并最终生成一份结构化的日报（目前支持 PDF 格式），帮助用户快速了解 LLM 领域的最新动态和热点话题。
+### ✨ 核心功能
 
----
+- **🤖 智能抓取**: 使用 Selenium + Chrome 自动从 Reddit 抓取 LLM 相关讨论
+- **🧹 内容清洗**: 过滤低质量和无关内容，确保报告质量
+- **✍️ AI 摘要**: 使用 DeepSeek API 生成准确的中文摘要
+- **🏷️ 智能分类**: 自动将内容按主题分类（模型发布、性能评测等）
+- **🔥 热点分析**: 识别当日讨论最多的技术热点
+- **📄 PDF 报告**: 生成结构化的 PDF 日报
 
-## 🌳 项目结构
+## 🚀 Windows 系统要求
 
-```
-llm_report/
-├── .env.example          # 环境变量示例文件
-├── .gitignore            # Git 忽略文件配置
-├── config.json           # 默认配置文件
-├── config.json.example   # 配置文件示例
-├── data/                 # 存放生成的数据文件 (被 .gitignore 忽略)
-│   ├── *.xlsx
-│   ├── *.txt
-│   └── *.json
-├── drivers/              # (可选) 存放 WebDriver 二进制文件
-├── llm_report_tool/      # 主要工具代码
-│   ├── __init__.py
-│   ├── main.py             # 主入口和工作流控制
-│   ├── scrapers/         # 爬虫模块
-│   │   └── reddit_scraper.py
-│   ├── processors/       # 数据处理模块
-│   │   ├── data_cleaner.py
-│   │   ├── summarizer.py
-│   │   ├── classifier.py       # (原 topic_extractor.py)
-│   │   └── latex_report_generator.py
-│   ├── reports/            # 存放生成的报告和中间文件 (被 .gitignore 忽略)
-│   │   ├── *.pdf
-│   │   ├── *.tex
-│   │   └── ... (其他 LaTeX 文件)
-│   └── utils/            # 工具函数和配置
-│       └── config.py
-├── README.md             # 项目说明文件 (就是您正在看的这个)
-├── requirements.txt      # Python 依赖列表
-├── tests/                # (可选) 单元测试和集成测试
-└── verify_setup.py       # 用于检查环境设置的脚本
+- **Windows 10/11** (x64)
+- **Python 3.10+**
+- **Google Chrome 浏览器**
+- **TeX Live** (用于 PDF 生成)
+
+## 🛠️ 快速安装 (Windows)
+
+### 1. 安装 Python
+
+```powershell
+# 从 Microsoft Store 安装 Python (推荐)
+# 或下载: https://www.python.org/downloads/windows/
+
+# 验证安装
+python --version
+pip --version
 ```
 
----
-
-## ✨ 主要功能
-
-- **🤖 自动抓取**: 使用 Selenium 和 Chrome/Chromedriver 从指定的 Reddit URL 抓取设定时间范围内（默认 24 小时）的帖子。
-- **🧹 数据清洗**:
-  - 移除明显空白或无效的帖子内容。
-  - (可选) 使用 LLM API (**DeepSeek**) 对帖子内容进行质量评分，过滤低质量或不相关的帖子。
-- **✍️ 内容摘要**: 使用 LLM API (**DeepSeek**) 为每个高质量帖子生成简洁明了的中文摘要。
-- **🏷️ 智能分类**: 使用 LLM API (**DeepSeek**) 对生成的摘要进行内容分类（如"模型发布"、"性能评测"等）。
-- **🔥 热点总结**:
-  - (可选) 基于分类结果，识别当天讨论最多的分类，并生成分类热点总结。
-  - (当前实现) 基于所有摘要内容，识别当天讨论频率最高的**核心概念**（如模型名称、技术术语），并生成概念热点总结。
-- **📄 报告生成**: 将分类后的摘要和热点总结整合，生成专业的 **PDF** 格式日报（使用 **LaTeX**）。
-- **🔧 高度可配置**: 支持通过 `config.json` 文件和环境变量自定义大部分行为（如 Reddit URL、API 密钥、时间范围、LLM 温度参数等）。
-- **🧩 模块化设计**: 各个处理阶段（抓取、清洗、摘要、分类、报告）解耦，方便单独运行或跳过某些阶段。
-
----
-
-## 🚀 技术栈
-
-- **核心语言**: Python 3.10+
-- **数据抓取**: Selenium, BeautifulSoup4, webdriver-manager
-- **数据处理**: Pandas
-- **LLM API**: DeepSeek API (用于内容分析、摘要、分类、概念提取)
-- **报告生成**: PyLaTeX, XeLaTeX (_需要本地安装 TeX 发行版_)
-- **依赖管理**: pip, `requirements.txt`
-- **配置管理**: python-dotenv, JSON
-
----
-
-## ⚙️ 环境设置
-
-本节介绍如何设置运行此工具所需的环境。
-
-#### 1. 克隆仓库
+### 2. 安装项目
 
 ```bash
-git clone https://github.com/36-gift/llm_report.git
-cd <repository-directory>
-```
+# 克隆项目
+git clone https://github.com/36-gift/llm-report.git
+cd llm-report
 
-#### 2. 创建虚拟环境 (_推荐_)
+# 创建虚拟环境
+python -m venv venv
 
-推荐使用 `conda` 创建虚拟环境：
+# 激活虚拟环境
+.\venv\Scripts\activate
 
-```bash
-conda create -n llm_report python=3.10 -y
-conda activate llm_report
-```
-
-_如果您不使用 `conda`，也可以使用 Python 内置的 `venv`：_
-
-```bash
-# python -m venv venv
-# Windows: .\venv\Scripts\activate
-# macOS/Linux: source venv/bin/activate
-```
-
-#### 3. 安装依赖
-
-_确保您的 `conda` 环境已激活_
-
-```bash
+# 安装依赖
 pip install -r requirements.txt
 ```
 
-_注意: 这会自动安装 `webdriver-manager`，它会尝试下载合适的 ChromeDriver。_
+### 3. 安装 LaTeX (PDF 生成)
 
-#### 4. 设置环境变量
+```powershell
+# 下载并安装 TeX Live
+# 访问: https://www.tug.org/texlive/acquire-netinstall.html
+# 下载 install-tl-windows.exe 并运行
 
-- **必需**: 创建一个 `.env` 文件（可从 `.env.example` 复制），并填入您的 **DeepSeek API 密钥**：
-  ```dotenv
-  # .env
-  DEEPSEEK_API_KEY="your_deepseek_api_key_here"
-  ```
-- _(可选)_ 您也可以在 `.env` 文件中设置其他配置，如 `REDDIT_URL`, `POST_CLEANUP_HOURS` 等。
+# 验证安装
+xelatex --version
+```
 
-#### 5. 安装 LaTeX 环境 (_用于生成 PDF_)
+> 💡 **LaTeX 安装提示**:
+>
+> - 选择 `scheme-full` 获得完整功能
+> - 安装时间较长 (约 1-2 小时)
+> - 确保添加到 PATH 环境变量
 
-为了生成 PDF 报告，您需要在本地安装一个 **TeX 发行版**。
-
-- **Windows**: 推荐安装 [**TeX Live**](https://www.tug.org/texlive/acquire-netinstall.html)。
-  - 下载并运行网络安装程序 `install-tl-windows.exe`。
-  - 在安装过程中，推荐选择 **`scheme-full`** 以安装完整的宏包集合，避免后续缺少依赖的问题（需要较多磁盘空间和下载时间）。
-  - **确保**安装程序将 TeX Live 的 `bin` 目录添加到了系统的 `PATH` 环境变量中。
-- **macOS**: 推荐安装 [**MacTeX**](https://www.tug.org/mactex/downloading.html) (基于 TeX Live，包含了常用工具和宏包)。
-- **Linux**: 可以通过包管理器安装 **TeX Live**。
-  - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install texlive-full` (或者更小的集合如 `texlive-xetex texlive-lang-chinese texlive-latex-recommended texlive-latex-extra`)
-  - Fedora: `sudo dnf install texlive-scheme-full` (或者根据需要安装更小的 `texlive-scheme-basic`, `texlive-xetex`, `texlive-collection-langchinese` 等)
-  - _请根据您的发行版调整包名。确保安装了 `xelatex` 命令和 `xeCJK` 等中文支持包。_
-- **验证**: 安装完成后，**打开新终端**并运行 `xelatex --version`，如果成功显示版本信息，则表示安装基本成功。
-
----
-
-## 🛠️ 使用方法
-
-通过运行项目根目录下的 `main.py` 脚本来启动整个工作流程。支持多种命令行参数来控制执行过程：
+### 4. 配置 API 密钥
 
 ```bash
-python main.py [选项]
+# 复制配置文件
+copy config.json.example config.json
+
+# 创建环境变量文件
+echo DEEPSEEK_API_KEY="your_api_key_here" > .env
 ```
 
-#### **常用选项**
+> 💡 **获取 DeepSeek API 密钥**: 访问 [DeepSeek 官网](https://www.deepseek.com/) 注册并获取免费 API 密钥
 
-| 选项                      | 缩写 | 描述                                                                         |
-| :------------------------ | :--- | :--------------------------------------------------------------------------- |
-| `--skip-scrape`           |      | 🚫 跳过 Reddit 爬取阶段。                                                    |
-| `--skip-clean`            |      | 🚫 跳过数据清洗和质量分析阶段。                                              |
-| `--skip-summary`          |      | 🚫 跳过摘要生成阶段。                                                        |
-| `--skip-topic`            |      | 🚫 跳过智能分类和热点总结阶段。                                              |
-| `--no-pdf`                |      | 🚫 不生成最终的 PDF 报告。                                                   |
-| `--classifier-input-file` |      | 📝 指定分类器使用的输入摘要文件路径 (例如 `data/summaries_YYYY-MM-DD.txt`)。 |
-| `--reddit-url`            |      | 🌐 指定要爬取的 Reddit 版块 URL。                                            |
-| `--hours`                 |      | ⏰ 指定抓取多少小时内的帖子 (例如 `12`)。                                    |
-| `--output-dir`            |      | 📁 指定所有输出文件的根目录。                                                |
-| `--verbose`               | `-v` | 📢 启用更详细的日志输出。                                                    |
+### 5. 验证安装
 
-#### **示例**
+```bash
+# 检验环境设置
+python verify_setup.py
 
-- **🚀 完整运行**:
-  ```bash
-  python main.py
-  ```
-- **⏩ 跳过抓取和清洗，从摘要开始**:
-  ```bash
-  python main.py --skip-scrape --skip-clean
-  ```
-- **📑 仅运行分类和报告生成 (使用指定日期的摘要)**:
-  ```bash
-  python main.py --skip-scrape --skip-clean --skip-summary --classifier-input-file data/summaries_2025-04-29.txt
-  ```
-
----
-
-## 📄 输出文件
-
-默认情况下，工具会在 `data/` 和 `llm_report_tool/reports/` 目录下生成以下文件（文件名中的日期为执行日期）：
-
-- `data/reddit_posts_YYYY-MM-DD.xlsx`: 📊 爬虫抓取的原始帖子数据。
-- `data/cleaned_reddit_posts_YYYY-MM-DD.xlsx`: ✨ 经过清洗和质量评分后的帖子数据。
-- `data/summaries_YYYY-MM-DD.txt`: 📝 为高质量帖子生成的摘要文本文件。
-- `data/classified_summaries_YYYY-MM-DD.json`: 🧠 包含每个摘要的分类结果和提取的概念热点总结。
-- `llm_report_tool/reports/YYYY-MM-DD-llm-news-daily.pdf`: 📰 **最终生成的 PDF 格式日报**。
-- `llm_report_tool/reports/*.log`, `.aux`, `.tex`, etc.: ⚙️ LaTeX 编译过程中的中间文件（如果未被自动清理）。
-
----
-
-## ⚙️ 配置 (`config.json`)
-
-您可以通过修改项目根目录下的 `config.json` 文件来调整部分默认行为（环境变量会覆盖此文件中的设置）：
-
-```json
-{
-  "reddit_url": "https://www.reddit.com/r/LocalLLaMA/",
-  "post_cleanup_hours": 24,
-  "report_title": "LLM 技术日报",
-  "report_prefix": "llm-news-daily",
-  "temperature": {
-    "summarizer": 0.6,
-    "topic_extractor": 0.8,
-    "data_cleaner": 0.8
-  }
-}
+# 运行演示模式
+python main.py --demo
 ```
 
-- `reddit_url`: 默认爬取的 Reddit URL。
-- `post_cleanup_hours`: 默认抓取的时间范围（小时）。
-- `report_title`: PDF 报告的标题。
-- `report_prefix`: PDF 报告文件名的前缀。
-- `temperature`: 不同阶段调用 LLM API 时的温度参数。
+## 📊 使用指南
+
+### 🎯 快速开始
+
+```bash
+# 激活虚拟环境 (每次使用前)
+.\venv\Scripts\activate
+
+# 完整运行流程
+python main.py
+```
+
+### 📈 分步执行
+
+```bash
+# 步骤 1: 数据抓取
+python main.py
+
+# 步骤 2: 跳过抓取，从清洗开始
+python main.py --skip-scrape
+
+# 步骤 3: 跳过前面步骤，从摘要开始
+python main.py --skip-scrape --skip-clean
+
+# 步骤 4: 仅生成分类和报告
+python main.py --skip-scrape --skip-clean --skip-summary
+
+# 步骤 5: 仅生成 PDF 报告
+python main.py --skip-scrape --skip-clean --skip-summary --skip-topic
+```
+
+### ⚙️ 常用参数
+
+```bash
+# 详细日志
+python main.py --verbose
+
+# 演示模式 (无需 API)
+python main.py --demo
+
+# 自定义时间范围
+python main.py --hours 48
+
+# 指定 Reddit 源
+python main.py --reddit-url "https://www.reddit.com/r/LocalLLaMA"
+```
+
+## 📁 项目结构
+
+```
+llm-report/
+├── main.py                    # 项目入口
+├── requirements.txt           # Python 依赖
+├── llm_report_tool/          # 核心工具包
+│   ├── main.py              # 主工作流控制
+│   │   └── reddit_scraper.py
+│   ├── processors/          # 数据处理模块
+│   │   ├── data_cleaner.py
+│   │   ├── summarizer.py
+│   │   ├── classifier.py
+│   │   └── latex_report_generator.py
+│   └── utils/               # 工具模块
+│       └── config.py
+├── data/                    # 生成的数据文件
+├── reports/                 # 输出的 PDF 报告
+└── config.json.example      # 配置文件模板
+```
+
+## 🔧 Windows 特定说明
+
+### Chrome 浏览器设置
+
+工具会自动下载和管理 Chrome 驱动程序：
+
+- 确保已安装 Google Chrome
+- 工具会自动匹配 Chrome 版本
+- 无需手动配置驱动路径
+
+### LaTeX 环境配置
+
+```powershell
+# 如果遇到中文字体问题
+fc-cache -fv
+
+# 验证 XeLaTeX 安装
+where xelatex
+```
+
+### 常见问题解决
+
+#### Python 路径问题
+
+```powershell
+# 如果 python 命令不可用
+py --version
+
+# 使用 py 命令替代 python
+py main.py
+```
+
+#### 权限问题
+
+```powershell
+# 以管理员身份运行命令提示符
+# 或在 PowerShell 中设置执行策略
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+#### 网络连接问题
+
+```bash
+# 如果遇到 SSL 证书问题
+pip install --upgrade certifi
+```
+
+## 📊 输出文件
+
+运行成功后，您将获得：
+
+### 数据文件 (`data/` 目录)
+
+- `reddit_posts_YYYY-MM-DD.xlsx` - 原始抓取数据
+- `cleaned_reddit_posts_YYYY-MM-DD.xlsx` - 清洗后数据
+- `summaries_YYYY-MM-DD.txt` - AI 生成摘要
+- `classified_summaries_YYYY-MM-DD.json` - 分类结果
+
+### PDF 报告 (`reports/` 目录)
+
+- `YYYY-MM-DD-llm-news-daily.pdf` - 最终日报
+
+## 🔄 更新和维护
+
+```bash
+# 更新项目依赖
+pip install -r requirements.txt --upgrade
+
+# 更新 Chrome 驱动
+# 工具会自动处理，无需手动更新
+
+# 清理临时文件
+# Windows + R，输入 %temp%，删除临时目录内容
+```
+
+## 🎯 使用技巧
+
+### 提高运行效率
+
+- 使用 `--skip-*` 参数跳过已完成的步骤
+- 批处理多天数据时使用 `--classifier-input-file`
+- 定期清理 `data/` 目录中的旧文件
+
+### 定时任务设置
+
+```powershell
+# 使用 Windows 任务计划程序
+# 创建每日自动运行任务
+schtasks /create /tn "LLM Daily Report" /tr "C:\path\to\llm-report\run_daily.bat" /sc daily /st 08:00
+```
+
+## 📝 许可证
+
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+
+## 🤝 贡献
+
+欢迎提交 Issues 和 Pull Requests！
 
 ---
 
-## ⚠️ 免责声明
-
-> - 本工具生成的摘要、分类和热点总结均由大型语言模型（DeepSeek API）自动生成，可能包含不准确、不完整或有偏见的信息。**请用户自行判断内容的准确性和可靠性**。
-> - 本工具仅用于**学习和技术研究**目的。对于使用本工具抓取、处理或生成的内容，以及由此产生的任何后果，开发者不承担任何责任。
-> - 请确保您有权访问和使用目标 Reddit 版块的内容，并遵守 **Reddit 的服务条款**。
-> - 使用 API 可能产生费用，请查阅 **DeepSeek API** 的定价策略。
-
----
-
-## 🙏 致谢
-
-> - 感谢 **Reddit** <img src="https://img.shields.io/badge/Reddit-%23FF4500.svg?&style=flat-square&logo=reddit&logoColor=white" alt="Reddit Badge"/> 提供了丰富的信息来源。
-> - 感谢 **DeepSeek** <img src="https://img.shields.io/badge/AI-DeepSeek-blueviolet?style=flat-square" alt="DeepSeek Badge"/> 提供了强大的 LLM API 支持。
-> - 感谢 **Selenium** <img src="https://img.shields.io/badge/Selenium-%43B02A.svg?&style=flat-square&logo=selenium&logoColor=white" alt="Selenium Badge"/>, **BeautifulSoup4** <img src="https://img.shields.io/badge/BeautifulSoup4-%23C41515.svg?&style=flat-square&logo=python&logoColor=white" alt="BeautifulSoup4 Badge"/>, **Pandas** <img src="https://img.shields.io/badge/Pandas-%23150458.svg?&style=flat-square&logo=pandas&logoColor=white" alt="Pandas Badge"/>, **PyLaTeX** <img src="https://img.shields.io/badge/PyLaTeX-%233776AB.svg?&style=flat-square&logo=python&logoColor=white" alt="PyLaTeX Badge"/> 等开源库的开发者。
-> - 感谢 **TeX Live** <img src="https://img.shields.io/badge/TeX-%23008080.svg?&style=flat-square&logo=tex&logoColor=white" alt="TeX Badge"/> 社区提供了优秀的 TeX 发行版。
-
----
-
-希望这份 README 对您有所帮助！
+<div align="center">
+  <p><strong>专为 Windows 用户打造的 LLM 新闻自动化工具</strong></p>
+  <p>🪟 Windows 10/11 优化 | 🚀 一键式自动化 | �� 结构化报告</p>
+</div>

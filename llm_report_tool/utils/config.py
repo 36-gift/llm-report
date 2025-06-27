@@ -2,11 +2,12 @@
 配置管理模块，统一管理项目配置。
 支持从环境变量和配置文件加载配置。
 """
-import os
 import json
-from pathlib import Path
-from datetime import datetime
 import logging
+import os
+from datetime import datetime
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 # 首先尝试加载.env文件
@@ -25,7 +26,7 @@ class Config:
     def __init__(self):
         self.base_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         self.data_dir = self.base_dir / "data"
-        self.reports_dir = self.base_dir / "llm_report_tool" / "reports"
+        self.reports_dir = self.base_dir / "reports"
         
         # 确保目录存在
         self.data_dir.mkdir(exist_ok=True)
