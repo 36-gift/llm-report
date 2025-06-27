@@ -56,8 +56,8 @@ git clone https://github.com/36-gift/llm-report.git
 cd llm-report
 
 # 安装并设置 Python 3.11
-pyenv install 3.11.10
-pyenv local 3.11.10
+pyenv install 3.11.12
+pyenv local 3.11.12
 
 # 配置 Poetry 环境
 poetry env use python3.11
